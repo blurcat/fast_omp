@@ -69,6 +69,9 @@ Ops Middle Platform 是一个现代化的运维中台管理系统，旨在提供
    # 数据库迁移
    alembic upgrade head
    
+   # 初始化数据 (创建默认管理员)
+   python app/initial_data.py
+   
    # 启动服务
    python -m app.main
    ```
@@ -79,6 +82,16 @@ Ops Middle Platform 是一个现代化的运维中台管理系统，旨在提供
    npm install
    npm run dev
    ```
+
+### 默认账号
+
+初始化数据后，系统会创建默认超级管理员账号：
+
+- **用户名**: `admin`
+- **密码**: `admin123`
+- **邮箱**: `admin@example.com`
+
+> ⚠️ 请在首次登录后及时修改密码。
 
 ### Docker 部署
 

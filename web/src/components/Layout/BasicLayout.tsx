@@ -80,12 +80,29 @@ const BasicLayout: React.FC = () => {
     >
       <ProLayout
         title="Ops Middle Platform"
-        logo={null}
+        logo="https://gw.alipayobjects.com/zos/antfincdn/upvrAjAPQX/Logo_Tech%252520UI.svg"
         location={{
           pathname: location.pathname,
         }}
         route={{
           routes: menuData,
+        }}
+        token={{
+          header: {
+            colorBgHeader: '#292f33',
+            colorHeaderTitle: '#fff',
+            colorTextMenu: 'rgba(255,255,255,0.85)',
+            colorTextMenuSelected: '#fff',
+            colorTextMenuItemHover: '#fff',
+            colorTextMenuActive: '#fff',
+          },
+          sider: {
+            colorMenuBackground: '#fff',
+            colorMenuItemDivider: '#dfdfdf',
+            colorTextMenu: '#595959',
+            colorTextMenuSelected: '#1890ff',
+            colorBgMenuItemSelected: '#e6f7ff',
+          },
         }}
         menuItemRender={(item, dom) => (
           <Link to={item.path || '/'}>{dom}</Link>
@@ -101,6 +118,8 @@ const BasicLayout: React.FC = () => {
         }}
         layout="mix"
         splitMenus={false}
+        fixSiderbar
+        fixedHeader
       >
         <Outlet />
       </ProLayout>

@@ -1,6 +1,42 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+from app.models.cmdb import PermissionType
+
+# --- Resource Group Schemas ---
+class ResourceGroupBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class ResourceGroupCreate(ResourceGroupBase):
+    pass
+
+class ResourceGroupUpdate(ResourceGroupBase):
+    name: Optional[str] = None
+
+class ResourceGroupResponse(ResourceGroupBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Resource Permission Schemas ---
+class ResourcePermissionBase(BaseModel):
+    user_id: int
+    resource_id: Optional[int] = None
+    group_id: Optional[int] = None
+    permission: PermissionType = PermissionType.READ
+
+class ResourcePermissionCreate(ResourcePermissionBase):
+    pass
+
+class ResourcePermissionResponse(ResourcePermissionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class ResourceBase(BaseModel):
     """资源基础模型"""
@@ -43,5 +79,6 @@ class ResourceResponse(ResourceBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    groups: List[ResourceGroupResponse] = []
     
     model_config = ConfigDict(from_attributes=True)

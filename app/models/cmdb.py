@@ -1,6 +1,51 @@
-from sqlalchemy import String, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, JSON, ForeignKey, Table, Column, Integer, Enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
+import enum
+
+# Association table for Resource <-> ResourceGroup (Many-to-Many)
+resource_groups_association = Table(
+    "cmdb_resource_group_items",
+    Base.metadata,
+    Column("resource_id", Integer, ForeignKey("cmdb_resources.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("cmdb_resource_groups.id"), primary_key=True),
+)
+
+class PermissionType(str, enum.Enum):
+    READ = "read"
+    WRITE = "write"
+
+class ResourceGroup(Base, TimestampMixin):
+    """
+    资源分组表
+    """
+    __tablename__ = "cmdb_resource_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, comment="分组ID")
+    name: Mapped[str] = mapped_column(String(50), unique=True, index=True, comment="分组名称")
+    description: Mapped[str] = mapped_column(String(200), nullable=True, comment="分组描述")
+
+    # Relationships
+    resources: Mapped[list["Resource"]] = relationship(
+        secondary=resource_groups_association, back_populates="groups"
+    )
+
+class ResourcePermission(Base, TimestampMixin):
+    """
+    资源权限表
+    控制用户对资源或资源组的访问权限
+    """
+    __tablename__ = "cmdb_resource_permissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False, comment="用户ID")
+    
+    # Target (Either Resource or Group)
+    resource_id: Mapped[int] = mapped_column(ForeignKey("cmdb_resources.id"), nullable=True, comment="资源ID")
+    group_id: Mapped[int] = mapped_column(ForeignKey("cmdb_resource_groups.id"), nullable=True, comment="分组ID")
+    
+    # Permission Level
+    permission: Mapped[PermissionType] = mapped_column(String(10), default=PermissionType.READ, comment="权限类型: read/write")
 
 class Resource(Base, TimestampMixin):
     """
@@ -37,3 +82,8 @@ class Resource(Base, TimestampMixin):
     # 灵活的数据存储，不同资源类型字段不同
     data: Mapped[dict] = mapped_column(JSON, default={}, comment="资源详细规格数据(JSON)")
     tags: Mapped[dict] = mapped_column(JSON, default={}, comment="资源标签(JSON)")
+
+    # Relationships
+    groups: Mapped[list["ResourceGroup"]] = relationship(
+        secondary=resource_groups_association, back_populates="resources"
+    )

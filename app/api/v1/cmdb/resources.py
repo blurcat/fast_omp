@@ -1,19 +1,54 @@
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 
 from app.api import deps
 from app.core.database import get_db
-from app.models.cmdb import Resource
+from app.models.cmdb import Resource, ResourcePermission, ResourceGroup, resource_groups_association, PermissionType
 from app.schemas.cmdb import ResourceCreate, ResourceResponse, ResourceUpdate
 from app.core.audit import create_audit_log
 
-from sqlalchemy import select, func
-
-# ... imports ...
-
 router = APIRouter()
+
+async def check_permission(db: AsyncSession, user_id: int, resource_id: int, required_perm: PermissionType) -> bool:
+    # Check direct
+    stmt = select(ResourcePermission).where(
+        ResourcePermission.user_id == user_id,
+        ResourcePermission.resource_id == resource_id
+    )
+    result = await db.execute(stmt)
+    perm = result.scalars().first()
+    if perm:
+        if required_perm == PermissionType.READ: return True
+        if perm.permission == PermissionType.WRITE: return True
+        
+    # Check group
+    # Find groups of this resource
+    stmt = select(ResourceGroup.id).join(
+        resource_groups_association,
+        ResourceGroup.id == resource_groups_association.c.group_id
+    ).where(resource_groups_association.c.resource_id == resource_id)
+    result = await db.execute(stmt)
+    group_ids = result.scalars().all()
+    
+    if not group_ids:
+        return False
+        
+    # Check permissions for these groups
+    stmt = select(ResourcePermission).where(
+        ResourcePermission.user_id == user_id,
+        ResourcePermission.group_id.in_(group_ids)
+    )
+    result = await db.execute(stmt)
+    perms = result.scalars().all()
+    
+    for p in perms:
+        if required_perm == PermissionType.READ: return True
+        if p.permission == PermissionType.WRITE: return True
+        
+    return False
 
 @router.get("/stats")
 async def get_resource_stats(
@@ -60,7 +95,32 @@ async def read_resources(
     获取资源列表
     支持分页和过滤
     """
-    query = select(Resource)
+    query = select(Resource).options(selectinload(Resource.groups))
+    
+    if not current_user.is_superuser:
+        # Check direct permissions
+        direct_perm_subq = select(ResourcePermission.resource_id).where(
+            ResourcePermission.user_id == current_user.id,
+            ResourcePermission.resource_id.isnot(None)
+        )
+        
+        # Check group permissions
+        # Join Resource -> ResourceGroupItems -> ResourceGroup -> ResourcePermission
+        group_perm_subq = select(resource_groups_association.c.resource_id).select_from(
+            resource_groups_association.join(
+                ResourcePermission,
+                resource_groups_association.c.group_id == ResourcePermission.group_id
+            )
+        ).where(
+            ResourcePermission.user_id == current_user.id
+        )
+        
+        query = query.where(
+            or_(
+                Resource.id.in_(direct_perm_subq),
+                Resource.id.in_(group_perm_subq)
+            )
+        )
     
     if type:
         query = query.where(Resource.type == type)
@@ -141,6 +201,12 @@ async def delete_resource(
     """
     删除资源
     """
+    # Check permissions
+    if not current_user.is_superuser:
+        has_perm = await check_permission(db, current_user.id, resource_id, PermissionType.WRITE)
+        if not has_perm:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     result = await db.execute(select(Resource).where(Resource.id == resource_id))
     resource = result.scalars().first()
     if not resource:
@@ -175,6 +241,12 @@ async def update_resource(
     """
     更新资源信息
     """
+    # Check permissions
+    if not current_user.is_superuser:
+        has_perm = await check_permission(db, current_user.id, resource_id, PermissionType.WRITE)
+        if not has_perm:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     # 查找资源
     result = await db.execute(select(Resource).where(Resource.id == resource_id))
     resource = result.scalars().first()
