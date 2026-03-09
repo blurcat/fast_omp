@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.api import deps
 from app.core.database import get_db
 from app.models.cmdb import ResourceGroup, Resource
-from app.schemas.cmdb import ResourceGroupCreate, ResourceGroupUpdate, ResourceGroupResponse, ResourceResponse
+from app.schemas.cmdb import ResourceGroupCreate, ResourceGroupUpdate, ResourceGroupResponse, ResourceGroupDetailResponse
 from app.core.audit import create_audit_log
 
 router = APIRouter()
@@ -30,7 +30,7 @@ async def create_resource_group(
     db: AsyncSession = Depends(get_db),
     group_in: ResourceGroupCreate,
     current_user = Depends(deps.get_current_active_user),
-    request,
+    request: Request,
 ) -> Any:
     """
     创建资源分组
@@ -52,15 +52,15 @@ async def create_resource_group(
     )
     return group
 
-@router.get("/{group_id}", response_model=ResourceGroupResponse)
+@router.get("/{group_id}", response_model=ResourceGroupDetailResponse)
 async def read_resource_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """
-    获取指定资源分组
+    获取指定资源分组 (包含成员)
     """
-    result = await db.execute(select(ResourceGroup).where(ResourceGroup.id == group_id))
+    result = await db.execute(select(ResourceGroup).options(selectinload(ResourceGroup.resources)).where(ResourceGroup.id == group_id))
     group = result.scalars().first()
     if not group:
         raise HTTPException(status_code=404, detail="Resource group not found")
@@ -73,7 +73,7 @@ async def update_resource_group(
     group_id: int,
     group_in: ResourceGroupUpdate,
     current_user = Depends(deps.get_current_active_user),
-    request,
+    request: Request,
 ) -> Any:
     """
     更新资源分组
@@ -110,7 +110,7 @@ async def delete_resource_group(
     db: AsyncSession = Depends(get_db),
     group_id: int,
     current_user = Depends(deps.get_current_active_user),
-    request,
+    request: Request,
 ) -> Any:
     """
     删除资源分组

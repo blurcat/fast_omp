@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -17,7 +17,7 @@ async def create_permission(
     db: AsyncSession = Depends(get_db),
     perm_in: ResourcePermissionCreate,
     current_user = Depends(deps.get_current_superuser),
-    request,
+    request: Request,
 ) -> Any:
     """
     授予权限
@@ -91,7 +91,7 @@ async def revoke_permission(
     db: AsyncSession = Depends(get_db),
     perm_id: int,
     current_user = Depends(deps.get_current_superuser),
-    request,
+    request: Request,
 ) -> Any:
     """
     撤销权限

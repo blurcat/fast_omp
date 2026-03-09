@@ -27,12 +27,13 @@ async def init_menus(session) -> None:
         session.add(sys_manage)
         await session.flush()  # 获取 ID
     
-    # 3. 子菜单
+    # 3. 子菜单 (系统管理)
     submenus = [
         {'title': '用户管理', 'icon': 'user', 'path': '/settings/users', 'order': 1},
         {'title': '角色管理', 'icon': 'team', 'path': '/settings/roles', 'order': 2},
         {'title': '菜单管理', 'icon': 'menu', 'path': '/settings/menus', 'order': 3},
         {'title': '审计日志', 'icon': 'file-text', 'path': '/settings/audit-logs', 'order': 4},
+        {'title': '权限管理', 'icon': 'lock', 'path': '/settings/permissions', 'order': 5},
     ]
     
     for sub in submenus:
@@ -45,6 +46,39 @@ async def init_menus(session) -> None:
                 path=sub['path'],
                 order=sub['order'],
                 parent_id=sys_manage.id
+            ))
+            
+    # 4. 资产管理 (父菜单)
+    result = await session.execute(select(Menu).where(Menu.title == '资产管理'))
+    asset_manage = result.scalars().first()
+    if not asset_manage:
+        logger.info("创建菜单: 资产管理")
+        asset_manage = Menu(title='资产管理', icon='desktop', path='/assets', order=2)
+        session.add(asset_manage)
+        await session.flush()
+    
+    # 获取资产管理ID (防止已存在但没获取到的情况)
+    if not asset_manage.id:
+        await session.flush()
+
+    asset_submenus = [
+        {'title': '资产列表', 'icon': 'unordered-list', 'path': '/assets', 'order': 1},
+        {'title': '资产分组', 'icon': 'appstore', 'path': '/assets/groups', 'order': 2},
+    ]
+    
+    for sub in asset_submenus:
+        # Check path AND title to avoid ambiguity if paths are same (e.g. /assets is both parent and child)
+        # But actually parent path is just for routing matching usually.
+        # Here we use parent_id to structure it.
+        result = await session.execute(select(Menu).where(Menu.path == sub['path']).where(Menu.title == sub['title']))
+        if not result.scalars().first():
+            logger.info(f"创建子菜单: {sub['title']}")
+            session.add(Menu(
+                title=sub['title'],
+                icon=sub['icon'],
+                path=sub['path'],
+                order=sub['order'],
+                parent_id=asset_manage.id
             ))
 
 async def init_db() -> None:

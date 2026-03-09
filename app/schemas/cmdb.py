@@ -56,7 +56,7 @@ class ResourceBase(BaseModel):
 
 class ResourceCreate(ResourceBase):
     """资源创建模型"""
-    pass
+    group_ids: Optional[List[int]] = None
 
 class ResourceUpdate(ResourceBase):
     """资源更新模型"""
@@ -73,12 +73,20 @@ class ResourceUpdate(ResourceBase):
     owner: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     tags: Optional[Dict[str, Any]] = None
+    group_ids: Optional[List[int]] = None
 
 class ResourceResponse(ResourceBase):
     """资源响应模型"""
     id: int
     created_at: datetime
     updated_at: datetime
+    # Use string forward reference if we want to include groups here
+    # But for now let's keep it simple and just use ResourceGroupResponse (which doesn't have resources)
     groups: List[ResourceGroupResponse] = []
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class ResourceGroupDetailResponse(ResourceGroupResponse):
+    resources: List[ResourceResponse] = []
     
     model_config = ConfigDict(from_attributes=True)

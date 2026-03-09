@@ -12,6 +12,8 @@ import Users from './pages/Settings/Users';
 import Roles from './pages/Settings/Roles';
 import Menus from './pages/Settings/Menus';
 import AuditLogs from './pages/Settings/AuditLogs';
+import Permissions from './pages/Settings/Permissions';
+import AssetGroups from './pages/Assets/Groups';
 
 const App: React.FC = () => {
   return (
@@ -23,11 +25,15 @@ const App: React.FC = () => {
             <Route path="/" element={<BasicLayout />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
-              <Route path="assets" element={<Assets />} />
+              <Route path="assets">
+                <Route index element={<Assets />} />
+                <Route path="groups" element={<AssetGroups />} />
+              </Route>
               <Route path="settings">
                 <Route path="users" element={<Users />} />
                 <Route path="roles" element={<Roles />} />
                 <Route path="menus" element={<Menus />} />
+                <Route path="permissions" element={<Permissions />} />
                 <Route path="audit-logs" element={<AuditLogs />} />
               </Route>
             </Route>

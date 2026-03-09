@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable, ModalForm, ProFormText, ProFormSelect, ProFormTextArea, ProDescriptions, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { Button, message, Popconfirm, Tag, Drawer } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { getAssets, createAsset, updateAsset, deleteAsset } from '../../services/assets';
+import { getAssetGroups } from '../../services/groups';
 import type { Resource } from '../../types';
 
 const Assets: React.FC = () => {
@@ -11,6 +12,22 @@ const Assets: React.FC = () => {
   const [updateModalOpen, setUpdateModalOpen] = useState<boolean>(false);
   const [showDetail, setShowDetail] = useState<boolean>(false);
   const [currentRow, setCurrentRow] = useState<Resource>();
+  const [groups, setGroups] = useState<{ label: string; value: number }[]>([]);
+
+  useEffect(() => {
+    // Fetch groups for filter
+    const fetchGroups = async () => {
+      try {
+        const res = await getAssetGroups();
+        if (res) {
+          setGroups(res.map((g: any) => ({ label: g.name, value: g.id })));
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchGroups();
+  }, []);
 
   const handleAdd = async (fields: Resource) => {
     const hide = message.loading('正在添加');
@@ -50,10 +67,26 @@ const Assets: React.FC = () => {
 
   const columns: ProColumns<Resource>[] = [
     {
+      title: '分组',
+      dataIndex: 'group_id',
+      render: (_, record: any) => (
+        <>
+          {record.groups?.map((group: any) => (
+            <Tag key={group.id} color="blue">{group.name}</Tag>
+          ))}
+        </>
+      ),
+      valueType: 'select',
+      fieldProps: {
+        options: groups,
+      },
+    },
+    {
       title: 'ID',
       dataIndex: 'id',
       width: 60,
       search: false,
+      hideInTable: true,
     },
     {
       title: '名称',
@@ -95,11 +128,13 @@ const Assets: React.FC = () => {
       title: '区域',
       dataIndex: 'region',
       hideInSearch: true,
+      hideInTable: true,
     },
     {
       title: '物理位置',
       dataIndex: 'location',
       hideInSearch: true,
+      hideInTable: true,
     },
     {
       title: '业务线',
@@ -141,7 +176,11 @@ const Assets: React.FC = () => {
         <a
           key="editable"
           onClick={() => {
-            setCurrentRow(record);
+            const row = {
+              ...record,
+              group_ids: record.groups?.map((g: any) => g.id) || []
+            };
+            setCurrentRow(row);
             setUpdateModalOpen(true);
           }}
         >
@@ -227,6 +266,13 @@ const Assets: React.FC = () => {
           label="资产名称"
           name="name"
           placeholder="请输入资产名称"
+        />
+        <ProFormSelect
+          name="group_ids"
+          label="所属分组"
+          mode="multiple"
+          options={groups}
+          placeholder="请选择所属分组"
         />
         <ProFormSelect
           name="type"
@@ -331,6 +377,13 @@ const Assets: React.FC = () => {
           placeholder="请输入资产名称"
         />
         <ProFormSelect
+          name="group_ids"
+          label="所属分组"
+          mode="multiple"
+          options={groups}
+          placeholder="请选择所属分组"
+        />
+        <ProFormSelect
           name="type"
           label="资产类型"
           valueEnum={{
@@ -429,6 +482,16 @@ const Assets: React.FC = () => {
               {
                 title: '名称',
                 dataIndex: 'name',
+              },
+              {
+                title: '分组',
+                render: (_, record: any) => (
+                  <>
+                    {record.groups?.map((group: any) => (
+                      <Tag key={group.id} color="blue">{group.name}</Tag>
+                    ))}
+                  </>
+                ),
               },
               {
                 title: '类型',

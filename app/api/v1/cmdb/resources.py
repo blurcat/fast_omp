@@ -89,6 +89,7 @@ async def read_resources(
     region: Optional[str] = None,
     location: Optional[str] = None,
     keyword: Optional[str] = None,
+    group_id: Optional[int] = None,
     current_user: Any = Depends(deps.get_current_active_user),
 ) -> Any:
     """
@@ -141,7 +142,18 @@ async def read_resources(
     if keyword:
         # 简单实现：同时搜索名称和IP
         query = query.where((Resource.name.ilike(f"%{keyword}%")) | (Resource.ip_address.ilike(f"%{keyword}%")))
-        
+    
+    # Filter by group_id
+    if group_id:
+        try:
+            # Use subquery or exists to filter, but simple join works.
+            # However, if we already joined for permission check, we need to be careful about aliasing or reuse.
+            # But `group_perm_subq` uses a separate select, so main query `query` is clean regarding joins unless we added them.
+            # `query` is `select(Resource).options(...)`.
+            query = query.join(resource_groups_association, Resource.id == resource_groups_association.c.resource_id).where(resource_groups_association.c.group_id == group_id)
+        except ValueError:
+            pass
+            
     result = await db.execute(query.offset(skip).limit(limit))
     resources = result.scalars().all()
     return resources
@@ -176,6 +188,19 @@ async def create_resource(
     await db.commit()
     await db.refresh(resource)
 
+    # Handle group_ids
+    if resource_in.group_ids:
+        stmt = select(ResourceGroup).where(ResourceGroup.id.in_(resource_in.group_ids))
+        result = await db.execute(stmt)
+        groups = result.scalars().all()
+        if groups:
+            # Re-fetch with options to ensure we can modify relationship
+            # Or since we know it is new and empty, we might just set it.
+            # But to be safe with SQLAlchemy async:
+            resource.groups = list(groups)
+            await db.commit()
+            await db.refresh(resource)
+
     # 记录操作日志
     await create_audit_log(
         db,
@@ -187,6 +212,12 @@ async def create_resource(
         details=resource_in.model_dump(),
         ip_address=request.client.host if request.client else None
     )
+
+    # Re-fetch with relations
+    result = await db.execute(
+        select(Resource).options(selectinload(Resource.groups)).where(Resource.id == resource.id)
+    )
+    resource = result.scalars().first()
 
     return resource
 
@@ -227,6 +258,12 @@ async def delete_resource(
         ip_address=request.client.host if request.client else None
     )
 
+    # Return resource with empty groups to match response schema if needed, or just return as is
+    # Since it's deleted, relationships might be tricky if lazy loaded. 
+    # But ResourceResponse expects groups list.
+    # We should probably load it before delete if we want to return it complete, or just return basic info.
+    # Let's set groups to empty list to be safe.
+    resource.groups = []
     return resource
 
 @router.put("/{resource_id}", response_model=ResourceResponse)
@@ -248,13 +285,26 @@ async def update_resource(
             raise HTTPException(status_code=403, detail="Permission denied")
 
     # 查找资源
-    result = await db.execute(select(Resource).where(Resource.id == resource_id))
+    result = await db.execute(
+        select(Resource).options(selectinload(Resource.groups)).where(Resource.id == resource_id)
+    )
     resource = result.scalars().first()
     if not resource:
         raise HTTPException(status_code=404, detail="未找到该资源")
         
     # 更新字段
     update_data = resource_in.model_dump(exclude_unset=True)
+    
+    # Handle group_ids if present
+    if 'group_ids' in update_data:
+        group_ids = update_data.pop('group_ids')
+        if group_ids is not None:
+            # Fetch groups
+            stmt = select(ResourceGroup).where(ResourceGroup.id.in_(group_ids))
+            result = await db.execute(stmt)
+            groups = result.scalars().all()
+            resource.groups = list(groups)
+    
     for field, value in update_data.items():
         setattr(resource, field, value)
         
@@ -273,5 +323,11 @@ async def update_resource(
         details=update_data,
         ip_address=request.client.host if request.client else None
     )
+
+    # Re-fetch with relations
+    result = await db.execute(
+        select(Resource).options(selectinload(Resource.groups)).where(Resource.id == resource_id)
+    )
+    resource = result.scalars().first()
 
     return resource
