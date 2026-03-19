@@ -7,6 +7,72 @@
 
 ---
 
+## [1.2.0] - 2026-03-19
+
+### Bug 修复
+
+#### [B-08] ALLOWED_ORIGINS 环境变量解析失败
+
+**影响文件**: `app/core/config.py`
+
+**问题**: `ALLOWED_ORIGINS: List[str]` 在 pydantic-settings v2 中被当作复杂类型，pydantic-settings 在调用任何 validator 之前就直接对环境变量值执行 `json.loads()`。当 `.env` 中使用逗号分隔格式（`http://localhost,http://localhost:5173`）时，JSON 解析失败，导致应用和 alembic 均无法启动。
+
+**修复**:
+- 将 `ALLOWED_ORIGINS: List[str]` 改为 `ALLOWED_ORIGINS: str`，彻底绕开 pydantic-settings 的 JSON 预处理。
+- 在 `main.py` CORS 中间件使用处 split：`[o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]`。
+- 将 `class Config` 迁移到 `SettingsConfigDict`（pydantic-settings v2 推荐写法），并加入 `extra="ignore"` 允许 `.env` 中存在未在 Settings 中定义的字段（如 `ALLOW_INSECURE_SECRET_KEY`）。
+
+---
+
+#### [B-09] bcrypt>=4.1 与 passlib 兼容性问题
+
+**影响文件**: `requirements.txt`
+
+**问题**: `passlib` 库（已停止维护）依赖 `bcrypt` 的 `__about__.__version__` 属性和旧的哈希行为，而 `bcrypt>=4.1` 删除了该属性，且对超过 72 字节的密码处理方式变化，导致 `get_password_hash()` 抛出 `ValueError`，无法创建或验证任何账户密码。
+
+**修复**: 在 `requirements.txt` 中固定 `bcrypt==4.0.1`，该版本与 passlib 完全兼容。
+
+**升级指引**: 重新安装依赖：`pip install "bcrypt==4.0.1"`，Docker 环境需 `--no-cache` 重新构建镜像。
+
+---
+
+### 前端修复
+
+#### [F-04] 修复 15 处 TypeScript 编译错误导致 Docker 构建失败
+
+**影响文件**: `web/src/` 下多个组件文件
+
+**问题**: `npm run build`（`tsc -b && vite build`）因 TypeScript 严格模式报错，前端 Docker 镜像构建失败，无法完成 `docker-compose up --build`。
+
+**修复清单**:
+
+| 文件 | 错误类型 | 修复内容 |
+|------|---------|---------|
+| `BasicLayout.tsx` | TS2353 不存在的属性 | 移除不存在的 `colorTextMenuItemHover` token（重复行） |
+| `store/slices/authSlice.ts` | TS6133 未使用导入 | 移除未使用的 `PayloadAction` 导入 |
+| `pages/Dashboard/index.tsx` | TS6133 未使用变量 | 移除未使用的 `Statistic` 解构赋值 |
+| `pages/Settings/AuditLogs/index.tsx` | TS6133 未使用导入 | 移除未使用的 `Tag` 导入 |
+| `pages/Assets/Groups/index.tsx` | TS6133 + TS2554 | 移除未使用的 `Modal` 导入；`useRef<ActionType>()` 改为 `useRef<ActionType \| undefined>(undefined)` |
+| `pages/Assets/index.tsx` | TS6133 未使用参数 | render 函数 `text` 参数改为 `_` |
+| `pages/Settings/Menus/index.tsx` | TS6133 未使用参数 | render `text` 改为 `_`；request `params` 改为 `_params` |
+| `pages/Settings/Permissions/index.tsx` | TS6133 + TS2554 | 移除未使用的 `DeleteOutlined` 导入；修复 `useRef` 缺少参数 |
+| `pages/Settings/Roles/index.tsx` | TS6133 + TS2554 | 移除未使用的 `useEffect` 导入；修复 `useRef` 参数；render `text` 改为 `_` |
+| `pages/Settings/Users/index.tsx` | TS6133 未使用参数 | render `text` 参数改为 `_` |
+
+> **背景**: React 19 的 `useRef` 要求必须传入初始值参数；TypeScript 严格模式下未使用的声明会报错。将未使用参数改为以 `_` 开头可告知编译器该参数有意忽略。
+
+---
+
+#### [F-05] 修复 DEPLOY.md 初始化命令错误
+
+**影响文件**: `DEPLOY.md`
+
+**问题**: 文档中 `python app/initial_data.py` 命令在项目根目录执行时会报 `ModuleNotFoundError: No module named 'app'`，因为 Python 无法解析相对模块路径。
+
+**修复**: 改为模块调用方式 `python -m app.initial_data`。
+
+---
+
 ## [1.1.0] - 2026-03-18
 
 ### 安全修复

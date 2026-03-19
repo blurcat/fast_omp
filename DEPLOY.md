@@ -74,7 +74,7 @@ pip install -r requirements.txt
 alembic upgrade head
 
 # 初始化数据（创建默认管理员和菜单，首次部署必须执行）
-python app/initial_data.py
+python -m app.initial_data
 
 # 启动后端服务
 python -m app.main
@@ -124,10 +124,16 @@ docker-compose up -d --build
 - `--build`：强制重新构建镜像（首次运行或代码变更后使用）
 - `-d`：后台运行
 
+> **注意**：若修改了后端代码（如 `config.py`、`requirements.txt`）但镜像显示 `0.0s`（使用了缓存），需强制重建：
+> ```bash
+> docker-compose build --no-cache backend
+> docker-compose up -d
+> ```
+
 启动过程中 backend 容器会自动执行 `alembic upgrade head`。**首次部署还需手动初始化管理员**：
 
 ```bash
-docker-compose exec backend python app/initial_data.py
+docker-compose exec backend python -m app.initial_data
 ```
 
 ### 3. 访问服务
@@ -243,7 +249,47 @@ docker-compose logs backend
 
 ---
 
-**6. 初始管理员密码忘记**
+**6. 启动报错：`error parsing value for field "ALLOWED_ORIGINS"`**
+
+`ALLOWED_ORIGINS` 格式不正确。使用**逗号分隔**，不要加方括号或引号：
+
+```ini
+# 正确
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# 错误（不支持）
+ALLOWED_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+```
+
+---
+
+**7. 启动报错：`No module named 'app'`**
+
+不要用 `python app/initial_data.py`，要以模块方式运行：
+
+```bash
+python -m app.initial_data
+```
+
+---
+
+**8. 启动报错：`ValueError: password cannot be longer than 72 bytes`**
+
+`passlib` 与 `bcrypt>=4.1` 存在兼容性问题。确认 `requirements.txt` 中已固定版本：
+
+```
+bcrypt==4.0.1
+```
+
+然后重新安装：
+
+```bash
+pip install "bcrypt==4.0.1"
+```
+
+---
+
+**9. 初始管理员密码忘记**
 
 通过数据库直接重置（需先生成新的 bcrypt hash）：
 

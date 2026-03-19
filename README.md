@@ -40,7 +40,7 @@ cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
-python app/initial_data.py   # 创建默认管理员
+python -m app.initial_data   # 创建默认管理员
 python -m app.main           # 启动，监听 :8000
 
 # 3. 前端（新终端）
