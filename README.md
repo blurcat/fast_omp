@@ -1,131 +1,101 @@
-# Ops Middle Platform (Fast MM)
+# Ops Middle Platform (fast_omp)
 
-Ops Middle Platform 是一个现代化的运维中台管理系统，旨在提供高效的资产管理（CMDB）、权限控制（RBAC）和系统审计功能。项目采用前后端分离架构，基于 FastAPI 和 React (Ant Design Pro) 构建。
+现代化运维中台管理系统，提供统一的资产管理（CMDB）、权限控制（RBAC）和操作审计功能。前后端分离架构，基于 FastAPI 和 React (Ant Design Pro) 构建。
 
-## ✨ 主要功能
+## 主要功能
 
-- **🔐 权限管理 (RBAC)**
-  - 基于角色的访问控制
-  - 动态权限分配（菜单级、按钮级）
-  - 用户、角色、权限的灵活配置
+- **权限管理 (RBAC)** — 用户、角色、菜单三级权限体系，支持动态菜单和细粒度权限分配
+- **资产管理 (CMDB)** — 多云/多类型资产全生命周期管理，支持资产分组与分组级权限控制
+- **审计日志** — 全量操作记录，覆盖登录、增删改查、权限变更，记录操作人、IP 和详情
+- **仪表盘** — 资产总量及按类型、云厂商、状态的分布统计
 
-- **📋 菜单管理**
-  - 动态菜单生成
-  - 菜单排序与层级管理
-  - 自动路由配置
+## 技术栈
 
-- **💻 资产管理 (CMDB)**
-  - IT 资产的全生命周期管理
-  - 资产详情查看与编辑
-  - 物理位置与区域管理
-  - 资产变更审计
+| 层次 | 技术 |
+|------|------|
+| 后端框架 | [FastAPI](https://fastapi.tiangolo.com/) (Python 3.12) |
+| 数据库 | [PostgreSQL](https://www.postgresql.org/) 15 |
+| ORM | [SQLAlchemy](https://www.sqlalchemy.org/) 2.0 (异步) |
+| 缓存 | [Redis](https://redis.io/) 7 |
+| 认证 | JWT (HS256) |
+| 迁移 | Alembic |
+| 前端框架 | [React](https://react.dev/) 19 + TypeScript |
+| 构建工具 | [Vite](https://vitejs.dev/) |
+| UI 组件 | [Ant Design Pro](https://procomponents.ant.design/) |
+| 状态管理 | Redux Toolkit |
+| 容器化 | Docker Compose |
 
-- **📝 审计日志**
-  - 全局操作日志记录
-  - 记录操作人、IP、时间、变更详情
-  - 支持日志查询与详情查看
+## 快速开始
 
-- **📊 仪表盘**
-  - 系统概览与统计
-  - 数据可视化展示
-
-## 🛠 技术栈
-
-### Backend (后端)
-- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.12)
-- **Database**: [PostgreSQL](https://www.postgresql.org/)
-- **ORM**: [SQLAlchemy](https://www.sqlalchemy.org/) (Async)
-- **Cache**: [Redis](https://redis.io/)
-- **Authentication**: JWT (JSON Web Tokens)
-- **Migration**: Alembic
-
-### Frontend (前端)
-- **Framework**: [React 18](https://react.dev/)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **UI Component**: [Ant Design Pro](https://procomponents.ant.design/)
-- **Language**: TypeScript
-- **State Management**: Redux Toolkit / React Context
-
-## 🚀 快速开始
-
-详细部署文档请参考 [DEPLOY.md](./DEPLOY.md)。
+详细部署步骤请参考 [DEPLOY.md](./DEPLOY.md)。
 
 ### 本地开发
 
-1. **环境准备**
-   - Python 3.12+
-   - Node.js 18+
-   - PostgreSQL & Redis
+```bash
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env，填写数据库密码和 SECRET_KEY
 
-2. **后端启动**
-   ```bash
-   # 创建虚拟环境
-   python -m venv .venv
-   source .venv/bin/activate  # Windows: .venv\Scripts\activate
-   
-   # 安装依赖
-   pip install -r requirements.txt
-   
-   # 数据库迁移
-   alembic upgrade head
-   
-   # 初始化数据 (创建默认管理员)
-   python app/initial_data.py
-   
-   # 启动服务
-   python -m app.main
-   ```
+# 2. 后端
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+python app/initial_data.py   # 创建默认管理员
+python -m app.main           # 启动，监听 :8000
 
-3. **前端启动**
-   ```bash
-   cd web
-   npm install
-   npm run dev
-   ```
-
-### 默认账号
-
-初始化数据后，系统会创建默认超级管理员账号：
-
-- **用户名**: `admin`
-- **密码**: `admin123`
-- **邮箱**: `admin@example.com`
-
-> ⚠️ 请在首次登录后及时修改密码。
+# 3. 前端（新终端）
+cd web && npm install && npm run dev  # 监听 :5173
+```
 
 ### Docker 部署
 
-一键启动所有服务（数据库、缓存、后端、前端）：
-
 ```bash
+# 1. 配置环境变量（必须）
+cp .env.example .env
+# 编辑 .env，至少设置 POSTGRES_PASSWORD 和 SECRET_KEY
+
+# 2. 一键启动
 docker-compose up -d --build
 ```
 
-访问地址：
-- 前端页面: http://localhost
-- 后端 API: http://localhost/api/v1/docs
+访问地址：前端 http://localhost · API 文档 http://localhost:8000/docs
 
-## 📂 项目结构
+### 默认管理员账号
+
+| 字段 | 值 |
+|------|-----|
+| 用户名 | 由 `.env` 中 `FIRST_SUPERUSER` 决定，默认 `admin` |
+| 密码 | 由 `.env` 中 `FIRST_SUPERUSER_PASSWORD` 决定 |
+
+> **安全提示**：请在 `.env` 中设置强密码（≥8位）。密码一旦通过 `initial_data.py` 写入数据库，修改 `.env` 不会自动同步，需登录后在用户管理中手动修改。
+
+## 项目结构
 
 ```
-fast_mm/
-├── app/                  # 后端应用源码
-│   ├── api/              # API 路由与控制器
-│   ├── core/             # 核心配置、安全、数据库连接
-│   ├── models/           # SQLAlchemy 数据模型
-│   └── schemas/          # Pydantic 数据验证模型
-├── web/                  # 前端应用源码 (React)
-│   ├── src/
-│   │   ├── pages/        # 页面组件
-│   │   ├── services/     # API 请求服务
-│   │   └── components/   # 公共组件
-├── alembic/              # 数据库迁移脚本
-├── docs/                 # 项目文档
-├── DEPLOY.md             # 部署文档
-├── docker-compose.yml    # Docker 编排文件
-└── requirements.txt      # Python 依赖列表
+fast_omp/
+├── app/                    # 后端应用
+│   ├── api/v1/             # API 路由（system/ + cmdb/）
+│   ├── core/               # 配置、数据库、安全、审计
+│   ├── models/             # SQLAlchemy 数据模型
+│   └── schemas/            # Pydantic 验证模型
+├── web/                    # 前端应用（React）
+│   └── src/
+│       ├── pages/          # 页面组件
+│       ├── services/       # API 调用层
+│       ├── store/          # Redux 状态
+│       └── types/          # TypeScript 类型定义
+├── alembic/                # 数据库迁移脚本
+├── .env.example            # 环境变量配置模板
+├── CHANGELOG.md            # 版本变更记录
+├── DEPLOY.md               # 详细部署文档
+├── docker-compose.yml      # Docker 编排文件
+└── requirements.txt        # Python 依赖
 ```
 
-## 📄 License
+## 变更记录
+
+详见 [CHANGELOG.md](./CHANGELOG.md)。
+
+## License
 
 MIT License
