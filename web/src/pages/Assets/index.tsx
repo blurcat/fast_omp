@@ -163,7 +163,7 @@ const Assets: React.FC = () => {
       title: '操作',
       valueType: 'option',
       key: 'option',
-      render: (text, record, _, action) => [
+      render: (_, record, _idx, action) => [
         <a
           key="detail"
           onClick={() => {

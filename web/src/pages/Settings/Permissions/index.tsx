@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { Button, message, Popconfirm, Select, Radio, Form, Modal } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import { getPermissions, grantPermission, revokePermission, type ResourcePermission } from '../../../services/permissions';
 import { getUsers } from '../../../services/users';
 import { getAssets } from '../../../services/assets';
@@ -10,7 +10,7 @@ import type { User, Resource } from '../../../types';
 import type { AssetGroup } from '../../../services/groups';
 
 const Permissions: React.FC = () => {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [form] = Form.useForm();
   

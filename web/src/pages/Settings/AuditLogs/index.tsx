@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { PageContainer, ProTable, type ActionType, type ProColumns, ProDescriptions } from '@ant-design/pro-components';
-import { Tag, Drawer } from 'antd';
+import { Drawer } from 'antd';
 import { getAuditLogs } from '../../../services/audit';
 import type { AuditLog } from '../../../types';
 

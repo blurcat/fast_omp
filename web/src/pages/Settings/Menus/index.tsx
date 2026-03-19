@@ -104,7 +104,7 @@ const Menus: React.FC = () => {
       title: '操作',
       valueType: 'option',
       key: 'option',
-      render: (text, record, _, action) => [
+      render: (_, record, _idx, action) => [
         <a
           key="editable"
           onClick={() => {
@@ -157,7 +157,7 @@ const Menus: React.FC = () => {
             <PlusOutlined /> 新建
           </Button>,
         ]}
-        request={async (params) => {
+        request={async (_params) => {
           const result = await getMenus();
           // ProTable 自动处理 children 字段进行树形展示
           return {

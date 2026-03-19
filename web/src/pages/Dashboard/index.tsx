@@ -4,7 +4,6 @@ import { Pie, Column } from '@ant-design/plots';
 import { DatabaseOutlined, CloudServerOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { getDashboardStats } from '../../services/dashboard';
 
-const { Statistic } = StatisticCard;
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);

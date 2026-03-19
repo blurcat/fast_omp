@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { PageContainer, ProTable, ModalForm, ProFormText, ProFormTextArea, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { Button, message, Popconfirm, Modal, Tree } from 'antd';
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
@@ -6,7 +6,7 @@ import { getRoles, createRole, updateRole, deleteRole } from '../../../services/
 import { getMenus } from '../../../services/menus';
 
 const Roles: React.FC = () => {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [updateModalOpen, setUpdateModalOpen] = useState<boolean>(false);
   const [permissionModalOpen, setPermissionModalOpen] = useState<boolean>(false);
@@ -128,7 +128,7 @@ const Roles: React.FC = () => {
       title: '操作',
       valueType: 'option',
       key: 'option',
-      render: (text, record, _, action) => [
+      render: (_, record, _idx, action) => [
         <a
           key="permission"
           onClick={() => handlePermissionClick(record)}

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
-import { Button, message, Popconfirm, Drawer, List, Tag, Select, Modal } from 'antd';
+import { Button, message, Popconfirm, Drawer, List, Tag, Select } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getAssetGroups, getAssetGroup, createAssetGroup, updateAssetGroup, deleteAssetGroup, addAssetToGroup, removeAssetFromGroup, type AssetGroup } from '../../../services/groups';
 import { getAssets } from '../../../services/assets';
@@ -8,7 +8,7 @@ import { ModalForm, ProFormText, ProFormTextArea } from '@ant-design/pro-compone
 import type { Resource } from '../../../types';
 
 const AssetGroups: React.FC = () => {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [currentRow, setCurrentRow] = useState<AssetGroup>();
   const [detailVisible, setDetailVisible] = useState(false);

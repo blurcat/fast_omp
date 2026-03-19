@@ -93,7 +93,6 @@ const BasicLayout: React.FC = () => {
             colorHeaderTitle: '#fff',
             colorTextMenu: 'rgba(255,255,255,0.85)',
             colorTextMenuSelected: '#fff',
-            colorTextMenuItemHover: '#fff',
             colorTextMenuActive: '#fff',
           },
           sider: {
