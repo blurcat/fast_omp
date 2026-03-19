@@ -1,6 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 
+
+
 _INSECURE_DEFAULT_KEY = "CHANGE_THIS_IN_PRODUCTION_SECRET_KEY"
 
 class Settings(BaseSettings):
@@ -35,9 +37,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Token 过期时间（分钟）
 
-    # CORS 允许的来源列表（逗号分隔，生产环境请配置具体域名）
+    # CORS 允许的来源（逗号分隔字符串，生产环境请配置具体域名）
     # 示例: ALLOWED_ORIGINS=https://yourdomain.com,https://admin.yourdomain.com
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000", "http://localhost"]
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost"
 
     # Redis 配置 (用于缓存和 Celery)
     REDIS_HOST: str = "localhost"
