@@ -41,7 +41,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-fast_mm}
       - REDIS_HOST=redis
       - SECRET_KEY=${SECRET_KEY:?err}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
     ports:
       - "8000:8000"
     networks:
