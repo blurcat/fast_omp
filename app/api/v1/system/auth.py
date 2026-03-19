@@ -36,7 +36,7 @@ async def login_access_token(
         
     # 验证用户是否激活
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="用户未激活")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户未激活")
         
     # 生成 Access Token
     access_token = create_access_token(subject=user.username)

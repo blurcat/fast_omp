@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
@@ -13,67 +13,49 @@ from app.core.audit import create_audit_log
 router = APIRouter()
 
 async def check_permission(db: AsyncSession, user_id: int, resource_id: int, required_perm: PermissionType) -> bool:
-    # Check direct
+    """
+    检查用户对指定资源的权限。
+    支持直接权限（绑定到资源）和组权限（通过资源分组继承）。
+    WRITE 权限包含 READ 权限。
+    """
+    def has_required_perm(perm_level: PermissionType) -> bool:
+        if required_perm == PermissionType.READ:
+            return True  # 用户拥有任何权限级别均可读
+        return perm_level == PermissionType.WRITE
+
+    # 检查直接权限
     stmt = select(ResourcePermission).where(
         ResourcePermission.user_id == user_id,
         ResourcePermission.resource_id == resource_id
     )
     result = await db.execute(stmt)
     perm = result.scalars().first()
-    if perm:
-        if required_perm == PermissionType.READ: return True
-        if perm.permission == PermissionType.WRITE: return True
-        
-    # Check group
-    # Find groups of this resource
+    if perm and has_required_perm(perm.permission):
+        return True
+
+    # 检查组权限：获取该资源所属的分组
     stmt = select(ResourceGroup.id).join(
         resource_groups_association,
         ResourceGroup.id == resource_groups_association.c.group_id
     ).where(resource_groups_association.c.resource_id == resource_id)
     result = await db.execute(stmt)
     group_ids = result.scalars().all()
-    
+
     if not group_ids:
         return False
-        
-    # Check permissions for these groups
+
+    # 检查用户在这些分组上的权限
     stmt = select(ResourcePermission).where(
         ResourcePermission.user_id == user_id,
         ResourcePermission.group_id.in_(group_ids)
     )
     result = await db.execute(stmt)
-    perms = result.scalars().all()
-    
-    for p in perms:
-        if required_perm == PermissionType.READ: return True
-        if p.permission == PermissionType.WRITE: return True
-        
+    for p in result.scalars().all():
+        if has_required_perm(p.permission):
+            return True
+
     return False
 
-@router.get("/stats")
-async def get_resource_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: Any = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    获取资产统计信息
-    """
-    # 按类型统计
-    type_stats = await db.execute(
-        select(Resource.type, func.count(Resource.id)).group_by(Resource.type)
-    )
-    type_data = [{"type": row[0], "count": row[1]} for row in type_stats.all()]
-    
-    # 按云厂商统计
-    provider_stats = await db.execute(
-        select(Resource.provider, func.count(Resource.id)).group_by(Resource.provider)
-    )
-    provider_data = [{"provider": row[0], "count": row[1]} for row in provider_stats.all()]
-    
-    return {
-        "type_stats": type_data,
-        "provider_stats": provider_data
-    }
 
 @router.get("/", response_model=List[ResourceResponse])
 async def read_resources(
@@ -145,14 +127,10 @@ async def read_resources(
     
     # Filter by group_id
     if group_id:
-        try:
-            # Use subquery or exists to filter, but simple join works.
-            # However, if we already joined for permission check, we need to be careful about aliasing or reuse.
-            # But `group_perm_subq` uses a separate select, so main query `query` is clean regarding joins unless we added them.
-            # `query` is `select(Resource).options(...)`.
-            query = query.join(resource_groups_association, Resource.id == resource_groups_association.c.resource_id).where(resource_groups_association.c.group_id == group_id)
-        except ValueError:
-            pass
+        query = query.join(
+            resource_groups_association,
+            Resource.id == resource_groups_association.c.resource_id
+        ).where(resource_groups_association.c.group_id == group_id)
             
     result = await db.execute(query.offset(skip).limit(limit))
     resources = result.scalars().all()
@@ -221,7 +199,7 @@ async def create_resource(
 
     return resource
 
-@router.delete("/{resource_id}", response_model=ResourceResponse)
+@router.delete("/{resource_id}")
 async def delete_resource(
     *,
     db: AsyncSession = Depends(get_db),
@@ -242,29 +220,26 @@ async def delete_resource(
     resource = result.scalars().first()
     if not resource:
         raise HTTPException(status_code=404, detail="未找到该资源")
-        
+
+    # 在 delete+commit 前保存所需数据，commit 后 ORM 对象属性会过期
+    resource_id_str = str(resource.id)
+    resource_name = resource.name
+
     await db.delete(resource)
     await db.commit()
 
-    # 记录操作日志
     await create_audit_log(
         db,
         user_id=current_user.id,
         username=current_user.username,
         action="delete",
         target_type="asset",
-        target_id=str(resource.id),
-        details={"name": resource.name},
+        target_id=resource_id_str,
+        details={"name": resource_name},
         ip_address=request.client.host if request.client else None
     )
 
-    # Return resource with empty groups to match response schema if needed, or just return as is
-    # Since it's deleted, relationships might be tricky if lazy loaded. 
-    # But ResourceResponse expects groups list.
-    # We should probably load it before delete if we want to return it complete, or just return basic info.
-    # Let's set groups to empty list to be safe.
-    resource.groups = []
-    return resource
+    return {"status": "success", "id": int(resource_id_str), "name": resource_name}
 
 @router.put("/{resource_id}", response_model=ResourceResponse)
 async def update_resource(

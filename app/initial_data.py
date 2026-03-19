@@ -1,14 +1,10 @@
 import asyncio
-import logging
+from loguru import logger
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
 from app.models.system import User, Menu
 from app.core.config import settings
 from app.core.security import get_password_hash
-
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 async def init_menus(session) -> None:
     """初始化菜单数据"""

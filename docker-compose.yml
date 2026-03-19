@@ -6,9 +6,9 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      - POSTGRES_USER=fast_mm
-      - POSTGRES_PASSWORD=fast_mm_secret
-      - POSTGRES_DB=fast_mm
+      - POSTGRES_USER=${POSTGRES_USER:-fast_mm}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?err}
+      - POSTGRES_DB=${POSTGRES_DB:-fast_mm}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -36,11 +36,12 @@ services:
       - redis
     environment:
       - POSTGRES_SERVER=db
-      - POSTGRES_USER=fast_mm
-      - POSTGRES_PASSWORD=fast_mm_secret
-      - POSTGRES_DB=fast_mm
+      - POSTGRES_USER=${POSTGRES_USER:-fast_mm}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?err}
+      - POSTGRES_DB=${POSTGRES_DB:-fast_mm}
       - REDIS_HOST=redis
-      # 可以在这里覆盖其他配置
+      - SECRET_KEY=${SECRET_KEY:?err}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
     ports:
       - "8000:8000"
     networks:

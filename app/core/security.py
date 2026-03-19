@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Any, Optional, Union
 from jose import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -25,7 +25,7 @@ def get_password_hash(password: str) -> str:
     """
     return pwd_context.hash(password)
 
-def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
+def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
     生成 JWT Access Token
     :param subject: Token 主题（通常是用户名或用户ID）

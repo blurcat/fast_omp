@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.config import settings
 from app.schemas.system import TokenPayload
@@ -11,10 +12,6 @@ from app.models.system import User
 # 定义 OAuth2 认证模式 (Bearer Token)
 # tokenUrl 指定了获取 Token 的接口地址
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
-
-from sqlalchemy.orm import selectinload
-
-# ... imports ...
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -59,7 +56,7 @@ async def get_current_active_user(
     基于 get_current_user，增加 is_active 状态检查
     """
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="用户未激活")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户未激活")
     return current_user
 
 async def get_current_superuser(
@@ -71,6 +68,6 @@ async def get_current_superuser(
     """
     if not current_user.is_superuser:
         raise HTTPException(
-            status_code=400, detail="用户权限不足"
+            status_code=status.HTTP_403_FORBIDDEN, detail="用户权限不足"
         )
     return current_user

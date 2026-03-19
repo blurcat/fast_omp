@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from app.models.cmdb import PermissionType
 
@@ -51,8 +51,8 @@ class ResourceBase(BaseModel):
     status: str = "unknown"
     business_unit: Optional[str] = None
     owner: Optional[str] = None
-    data: Dict[str, Any] = {}
-    tags: Dict[str, Any] = {}
+    data: Dict[str, Any] = Field(default_factory=dict)
+    tags: Dict[str, Any] = Field(default_factory=dict)
 
 class ResourceCreate(ResourceBase):
     """资源创建模型"""

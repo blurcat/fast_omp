@@ -10,7 +10,7 @@ from app.schemas.audit import AuditLogResponse
 
 router = APIRouter()
 
-@router.get("/audit/logs", response_model=List[AuditLogResponse])
+@router.get("/logs", response_model=List[AuditLogResponse])
 async def read_audit_logs(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,

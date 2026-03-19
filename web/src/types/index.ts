@@ -37,6 +37,14 @@ export interface Role {
   permissions: Record<string, any>;
 }
 
+export interface ResourceGroup {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Resource {
   id: number;
   name: string;
@@ -52,6 +60,7 @@ export interface Resource {
   owner?: string;
   data: Record<string, any>;
   tags: Record<string, any>;
+  groups?: ResourceGroup[];
   created_at: string;
   updated_at: string;
 }

@@ -1,5 +1,5 @@
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+from typing import Any, Dict, Optional, List
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 from datetime import datetime
 
 # --- Role Schemas ---
@@ -7,7 +7,7 @@ class RoleBase(BaseModel):
     """角色基础模型"""
     name: str
     description: Optional[str] = None
-    permissions: dict = {}
+    permissions: Dict[str, Any] = Field(default_factory=dict)
 
 class RoleCreate(RoleBase):
     """角色创建模型"""
@@ -68,6 +68,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """用户创建模型"""
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("密码长度不少于8位")
+        return v
 
 class UserUpdate(UserBase):
     """用户更新模型"""

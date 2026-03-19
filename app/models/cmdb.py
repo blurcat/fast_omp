@@ -38,7 +38,7 @@ class ResourcePermission(Base, TimestampMixin):
     __tablename__ = "cmdb_resource_permissions"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False, comment="用户ID")
+    user_id: Mapped[int] = mapped_column(ForeignKey("sys_users.id"), index=True, nullable=False, comment="用户ID")
     
     # Target (Either Resource or Group)
     resource_id: Mapped[int] = mapped_column(ForeignKey("cmdb_resources.id"), nullable=True, comment="资源ID")

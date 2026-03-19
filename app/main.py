@@ -11,7 +11,16 @@ async def lifespan(app: FastAPI):
     FastAPI 生命周期管理
     在应用启动前和关闭后执行的逻辑
     """
-    # 启动时执行
+    # 启动时安全检查
+    if settings.is_insecure_secret_key:
+        import os
+        if os.getenv("ALLOW_INSECURE_SECRET_KEY", "").lower() != "true":
+            raise RuntimeError(
+                "生产环境安全检查失败：SECRET_KEY 使用了默认不安全的值。"
+                "请在 .env 文件或环境变量中设置一个强随机密钥。"
+                "如需在开发环境跳过此检查，设置 ALLOW_INSECURE_SECRET_KEY=true"
+            )
+        logger.warning("使用了默认 SECRET_KEY，仅允许在开发环境使用！")
     logger.info("系统启动中: 正在检查数据库连接与 Redis...")
     yield
     # 关闭时执行
@@ -28,15 +37,13 @@ app = FastAPI(
 )
 
 # CORS 跨域配置
-# 允许所有来源访问（生产环境建议配置具体的域名）
-origins = ["*"]
-
+# 通过 settings.ALLOWED_ORIGINS 配置允许的来源列表
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],  # 允许所有 HTTP 方法
-    allow_headers=["*"],  # 允许所有 HTTP 头
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/health")

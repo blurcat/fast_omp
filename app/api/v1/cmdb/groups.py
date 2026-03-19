@@ -17,6 +17,7 @@ async def read_resource_groups(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    current_user = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     获取资源分组列表
@@ -56,6 +57,7 @@ async def create_resource_group(
 async def read_resource_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     获取指定资源分组 (包含成员)
@@ -104,7 +106,7 @@ async def update_resource_group(
     )
     return group
 
-@router.delete("/{group_id}", response_model=ResourceGroupResponse)
+@router.delete("/{group_id}")
 async def delete_resource_group(
     *,
     db: AsyncSession = Depends(get_db),
@@ -119,21 +121,25 @@ async def delete_resource_group(
     group = result.scalars().first()
     if not group:
         raise HTTPException(status_code=404, detail="Resource group not found")
-    
+
+    # 在 delete+commit 前保存所需数据，commit 后 ORM 对象属性会过期
+    group_id_str = str(group.id)
+    group_name = group.name
+
     await db.delete(group)
     await db.commit()
-    
+
     await create_audit_log(
         db,
         user_id=current_user.id,
         username=current_user.username,
         action="delete",
         target_type="resource_group",
-        target_id=str(group.id),
-        details={"name": group.name},
+        target_id=group_id_str,
+        details={"name": group_name},
         ip_address=request.client.host if request.client else None
     )
-    return group
+    return {"status": "success", "id": int(group_id_str), "name": group_name}
 
 @router.post("/{group_id}/resources/{resource_id}", response_model=ResourceGroupResponse)
 async def add_resource_to_group(

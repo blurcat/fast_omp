@@ -35,8 +35,12 @@ const AssetGroups: React.FC = () => {
   };
   
   const fetchAllAssets = async () => {
-      const res = await getAssets();
-      setAllAssets(res || []);
+      try {
+          const res = await getAssets();
+          setAllAssets(res || []);
+      } catch (error) {
+          message.error('获取资产列表失败');
+      }
   };
 
   const handleAddMember = async () => {
@@ -179,8 +183,8 @@ const AssetGroups: React.FC = () => {
       <ModalForm
         title={currentRow ? '编辑分组' : '新建分组'}
         width="400px"
-        visible={createModalVisible}
-        onVisibleChange={setCreateModalVisible}
+        open={createModalVisible}
+        onOpenChange={setCreateModalVisible}
         onFinish={handleCreate}
         initialValues={currentRow}
         modalProps={{
