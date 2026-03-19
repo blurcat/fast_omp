@@ -1,347 +1,337 @@
+# Ops Middle Platform - 技术架构文档
+
 ## 1. 架构设计
+
+项目采用**前后端分离**的单体架构（Modular Monolith），后端为单一 FastAPI 进程，通过路由模块化组织业务边界。
 
 ```mermaid
 graph TD
-    A[用户浏览器] --> B[React前端应用]
-    B --> C[API网关]
-    C --> D[认证服务]
-    C --> E[CMDB服务]
-    C --> F[系统服务]
-    
+    A[用户浏览器] --> B[React 前端 :5173/80]
+    B -->|HTTP /api/v1| C[Nginx 反向代理]
+    C --> D[FastAPI 后端 :8000]
+    D --> E[(PostgreSQL 15)]
+    D --> F[(Redis 7)]
+
     subgraph "前端层"
         B
     end
-    
-    subgraph "API层"
+
+    subgraph "接入层"
         C
-    end
-    
-    subgraph "服务层"
         D
+    end
+
+    subgraph "存储层"
         E
         F
     end
-    
-    D --> G[(用户数据库)]
-    E --> H[(资产数据库)]
-    F --> I[(配置数据库)]
 ```
 
-## 2. 技术栈描述
+---
 
-* **前端框架**: React\@18 + TypeScript\@5
+## 2. 技术栈
 
-* **构建工具**: Vite\@5
+### 后端
 
-* **UI框架**: Ant Design Pro\@6
+| 组件 | 版本 | 用途 |
+|------|------|------|
+| Python | 3.12 | 运行时 |
+| FastAPI | >=0.100 | Web 框架，异步 ASGI |
+| SQLAlchemy | >=2.0 | ORM，全异步模式 |
+| asyncpg | >=0.28 | PostgreSQL 异步驱动 |
+| Alembic | >=1.11 | 数据库迁移 |
+| Pydantic | >=2.0 | 数据验证与序列化 |
+| python-jose | >=3.3 | JWT Token 签发/验证 |
+| passlib[bcrypt] | >=1.7 | 密码哈希 |
+| loguru | >=0.7 | 日志 |
+| uvicorn | >=0.20 | ASGI 服务器 |
 
-* **状态管理**: @reduxjs/toolkit\@2 + react-redux\@9
+### 前端
 
-* **路由**: react-router-dom\@6
+| 组件 | 版本 | 用途 |
+|------|------|------|
+| React | ^19.2 | UI 框架 |
+| TypeScript | ~5.9 | 类型安全 |
+| Vite | ^7.2 | 构建工具 |
+| react-router | ^7.13 | 路由管理 |
+| Ant Design | ^5.29 | 基础 UI 组件库 |
+| @ant-design/pro-components | ^2.8 | ProTable、ProLayout、ModalForm 等企业组件 |
+| @ant-design/plots | ^2.6 | 数据可视化图表 |
+| @reduxjs/toolkit | ^2.11 | 状态管理 |
+| react-redux | ^9.2 | React-Redux 绑定 |
+| axios | ^1.13 | HTTP 客户端 |
 
-* **HTTP客户端**: axios\@1
-
-* **初始化工具**: vite-init
-
-* **后端服务**: 独立后端服务（非Supabase）
-
-* **接口规范**: RESTful API，统一前缀 `/api/v1`
+---
 
 ## 3. 路由定义
 
-| 路由路径             | 页面用途        |
-| ---------------- | ----------- |
-| /login           | 登录页面，用户身份认证 |
-| /                | 仪表板首页，系统概览  |
-| /assets          | 资产管理列表页面    |
-| /assets/:id      | 资产详情页面      |
-| /assets/create   | 创建新资产页面     |
-| /assets/:id/edit | 编辑资产页面      |
-| /settings/users  | 用户管理页面      |
-| /settings/roles  | 角色权限管理页面    |
-| /settings/menus  | 菜单配置页面      |
-| /settings/system | 系统参数配置页面    |
-| /profile         | 个人资料页面      |
-| /403             | 无权限访问页面     |
-| /404             | 页面不存在       |
+### 前端路由
 
-## 4. API定义
+| 路由路径 | 对应页面 |
+|----------|---------|
+| `/login` | 登录页 |
+| `/dashboard` | 仪表板（默认首页） |
+| `/assets` | 资产列表 |
+| `/assets/groups` | 资产分组管理 |
+| `/settings/users` | 用户管理 |
+| `/settings/roles` | 角色管理 |
+| `/settings/menus` | 菜单管理 |
+| `/settings/permissions` | 权限管理 |
+| `/settings/audit-logs` | 审计日志 |
 
-### 4.1 认证相关API
+### 后端 API 路由（统一前缀 `/api/v1`）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/auth/login` | 登录，返回 JWT Token |
+| GET | `/users/me` | 获取当前登录用户信息 |
+| GET/POST | `/users/` | 用户列表/创建用户 |
+| PUT | `/users/{id}` | 更新用户 |
+| GET/POST | `/roles/` | 角色列表/创建角色 |
+| PUT/DELETE | `/roles/{id}` | 更新/删除角色 |
+| GET/POST | `/menus/` | 菜单树/创建菜单 |
+| PUT/DELETE | `/menus/{id}` | 更新/删除菜单 |
+| GET/POST | `/assets/` | 资产列表/创建资产 |
+| PUT/DELETE | `/assets/{id}` | 更新/删除资产 |
+| GET/POST | `/asset-groups/` | 分组列表/创建分组 |
+| GET/PUT/DELETE | `/asset-groups/{id}` | 分组详情/更新/删除 |
+| POST/DELETE | `/asset-groups/{id}/resources/{rid}` | 添加/移除分组成员 |
+| GET/POST | `/permissions/` | 权限列表/授予权限 |
+| DELETE | `/permissions/{id}` | 撤销权限 |
+| GET | `/stats/summary` | 资产统计概览 |
+| GET | `/audit/logs` | 审计日志列表 |
+
+---
+
+## 4. API 规范
+
+### 4.1 认证
 
 **用户登录**
 
 ```
 POST /api/v1/auth/login
+Content-Type: application/x-www-form-urlencoded
+
+username=admin&password=yourpassword
 ```
 
-请求参数：
+响应：
 
-| 参数名      | 参数类型   | 是否必需 | 描述     |
-| -------- | ------ | ---- | ------ |
-| username | string | 是    | 用户名    |
-| password | string | 是    | 密码（明文） |
-
-响应数据：
-
-| 参数名          | 参数类型   | 描述      |
-| ------------ | ------ | ------- |
-| token        | string | JWT访问令牌 |
-| refreshToken | string | 刷新令牌    |
-| user         | object | 用户信息对象  |
-
-**获取用户信息**
-
-```
-GET /api/v1/auth/profile
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
 ```
 
-请求头：
+后续请求在 Header 中携带：
 
 ```
-Authorization: Bearer {token}
+Authorization: Bearer {access_token}
 ```
 
-### 4.2 资产管理API
+**获取当前用户**
+
+```
+GET /api/v1/users/me
+```
+
+### 4.2 资产管理
 
 **获取资产列表**
 
 ```
-GET /api/v1/assets
+GET /api/v1/assets/?skip=0&limit=20&type=host&provider=aws&status=running&keyword=web
 ```
 
 查询参数：
 
-| 参数名      | 参数类型   | 是否必需 | 描述        |
-| -------- | ------ | ---- | --------- |
-| page     | number | 否    | 页码，默认1    |
-| pageSize | number | 否    | 每页条数，默认20 |
-| keyword  | string | 否    | 搜索关键词     |
-| category | string | 否    | 资产分类      |
-| status   | string | 否    | 资产状态      |
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| skip | int | 偏移量，默认 0 |
+| limit | int | 每页条数，默认 100 |
+| type | string | 资产类型（host/database/middleware 等） |
+| category | string | 资产分类 |
+| provider | string | 云厂商（aws/aliyun/onprem/k8s） |
+| status | string | 状态（running/stopped/unknown） |
+| name | string | 名称模糊匹配 |
+| ip_address | string | IP 模糊匹配 |
+| region | string | 区域模糊匹配 |
+| keyword | string | 同时搜索 name 和 ip_address |
+| group_id | int | 按分组过滤 |
 
 **创建资产**
 
 ```
-POST /api/v1/assets
+POST /api/v1/assets/
+Content-Type: application/json
+
+{
+  "name": "web-server-01",
+  "type": "host",
+  "provider": "aws",
+  "region": "us-east-1",
+  "ip_address": "10.0.0.1",
+  "status": "running",
+  "data": {"cpu": "4", "memory": "8GB"},
+  "tags": {"env": "prod"}
+}
 ```
 
-请求体：
+---
 
-| 参数名            | 参数类型   | 是否必需 | 描述   |
-| -------------- | ------ | ---- | ---- |
-| name           | string | 是    | 资产名称 |
-| category       | string | 是    | 资产分类 |
-| ipAddress      | string | 否    | IP地址 |
-| specifications | object | 否    | 规格配置 |
-| description    | string | 否    | 资产描述 |
-
-### 4.3 系统管理API
-
-**用户管理**
-
-```
-GET /api/v1/admin/users
-POST /api/v1/admin/users
-PUT /api/v1/admin/users/:id
-DELETE /api/v1/admin/users/:id
-```
-
-**角色管理**
-
-```
-GET /api/v1/admin/roles
-POST /api/v1/admin/roles
-PUT /api/v1/admin/roles/:id
-DELETE /api/v1/admin/roles/:id
-```
-
-## 5. 前端架构设计
+## 5. 前端架构
 
 ```mermaid
 graph TD
-    A[React App] --> B[React Router]
-    A --> C[Redux Store]
-    A --> D[Ant Design Pro]
-    
-    B --> E[页面组件]
-    C --> F[状态管理]
-    D --> G[UI组件]
-    
-    E --> H[业务组件]
-    H --> I[API服务]
-    I --> J[Axios客户端]
-    
-    subgraph "组件层"
-        E
-        H
-    end
-    
-    subgraph "服务层"
-        I
-        J
-    end
-    
-    subgraph "状态层"
-        C
-        F
-    end
+    A[App.tsx 路由定义] --> B[BasicLayout 主布局]
+    B --> C[页面组件 pages/]
+    C --> D[服务层 services/]
+    D --> E[Axios 请求封装 utils/request.ts]
+    B --> F[Redux Store]
+    F --> G[authSlice 认证状态]
 ```
+
+### 目录结构
+
+```
+web/src/
+├── components/
+│   └── Layout/
+│       └── BasicLayout.tsx   # ProLayout 主布局，动态菜单渲染
+├── pages/
+│   ├── Login/                # 登录页
+│   ├── Dashboard/            # 仪表板（统计图表）
+│   ├── Assets/
+│   │   ├── index.tsx         # 资产列表
+│   │   └── Groups/           # 资产分组管理
+│   └── Settings/
+│       ├── Users/            # 用户管理
+│       ├── Roles/            # 角色管理
+│       ├── Menus/            # 菜单管理
+│       ├── Permissions/      # 权限管理
+│       └── AuditLogs/        # 审计日志
+├── services/                 # API 调用层（按模块拆分）
+│   ├── auth.ts
+│   ├── users.ts
+│   ├── roles.ts
+│   ├── menus.ts
+│   ├── assets.ts
+│   ├── groups.ts
+│   ├── permissions.ts
+│   ├── dashboard.ts
+│   └── audit.ts
+├── store/
+│   ├── index.ts              # Redux store 配置
+│   ├── hooks.ts              # useAppDispatch, useAppSelector
+│   └── slices/
+│       └── authSlice.ts      # 认证状态（isAuthenticated, user, token）
+├── types/
+│   └── index.ts              # 全局 TypeScript 类型定义
+├── utils/
+│   └── request.ts            # Axios 实例，请求/响应拦截器
+└── config/
+    └── routes.ts             # 静态菜单路由配置
+```
+
+---
 
 ## 6. 数据模型
 
-### 6.1 前端数据模型定义
-
-**用户模型 (User)**
+### 6.1 实际 TypeScript 类型定义
 
 ```typescript
 interface User {
-  id: string;
+  id: number;
   username: string;
   email: string;
-  name: string;
-  avatar?: string;
-  roles: Role[];
-  permissions: string[];
-  status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  role_id: number | null;
+  role?: Role;
+  created_at: string;
+  updated_at: string;
 }
-```
 
-**资产模型 (Asset)**
-
-```typescript
-interface Asset {
-  id: string;
-  name: string;
-  category: string;
-  type: string;
-  ipAddress?: string;
-  macAddress?: string;
-  specifications: Record<string, any>;
-  status: 'online' | 'offline' | 'maintenance';
-  location?: string;
-  department?: string;
-  owner?: string;
-  description?: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-```
-
-**角色模型 (Role)**
-
-```typescript
 interface Role {
-  id: string;
+  id: number;
   name: string;
-  code: string;
   description?: string;
-  permissions: Permission[];
-  menus: Menu[];
-  status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
+  permissions: Record<string, any>;  // {"menu_ids": [1, 2, 3]}
+}
+
+interface Resource {
+  id: number;
+  name: string;
+  type: string;
+  category?: string;
+  provider: string;
+  region?: string;
+  ip_address?: string;
+  description?: string;
+  location?: string;
+  status: string;
+  business_unit?: string;
+  owner?: string;
+  data: Record<string, any>;
+  tags: Record<string, any>;
+  groups?: ResourceGroup[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface ResourceGroup {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
 }
 ```
 
-### 6.2 状态管理结构
+### 6.2 Redux Store 结构
 
-**Redux Store结构**
+项目当前仅有 `auth` slice，资产等数据通过 ProTable 的 `request` 直接请求，不经过 Redux。
 
 ```typescript
 interface RootState {
   auth: {
-    token: string | null;
-    user: User | null;
     isAuthenticated: boolean;
-  };
-  assets: {
-    list: Asset[];
-    total: number;
+    user: User | null;
     loading: boolean;
-    currentAsset: Asset | null;
-  };
-  ui: {
-    sidebarCollapsed: boolean;
-    theme: 'light' | 'dark';
-    notifications: Notification[];
+    error: string | null;
   };
 }
 ```
 
-## 7. 项目结构
+---
 
-```
-src/
-├── components/          # 通用组件
-│   ├── Layout/           # 布局组件
-│   ├── Common/          # 通用业务组件
-│   └── Charts/          # 图表组件
-├── pages/               # 页面组件
-│   ├── Dashboard/       # 仪表板
-│   ├── Assets/          # 资产管理
-│   ├── Settings/        # 系统设置
-│   └── Login/           # 登录页
-├── services/            # API服务
-│   ├── api.ts           # API基础配置
-│   ├── auth.ts          # 认证相关API
-│   ├── assets.ts        # 资产管理API
-│   └── system.ts        # 系统管理API
-├── store/               # 状态管理
-│   ├── index.ts         # Store配置
-│   ├── slices/          # Redux切片
-│   └── hooks.ts         # 自定义Hooks
-├── utils/               # 工具函数
-│   ├── request.ts       # 请求封装
-│   ├── auth.ts          # 认证工具
-│   └── constants.ts     # 常量定义
-├── types/               # TypeScript类型定义
-├── styles/              # 样式文件
-└── config/              # 配置文件
-    ├── routes.ts        # 路由配置
-    └── menu.ts          # 菜单配置
-```
+## 7. 开发规范
 
-## 8. 开发规范
+### 7.1 代码规范
 
-### 8.1 代码规范
+- 使用 TypeScript 进行类型检查，避免使用 `any`
+- 遵循 ESLint 配置规范
+- 组件命名采用 PascalCase（`UserList.tsx`）
+- 工具/服务文件采用 camelCase（`request.ts`）
+- 常量命名采用 UPPER_SNAKE_CASE
 
-* 使用TypeScript进行类型检查
+### 7.2 Git 提交规范
 
-* 遵循ESLint配置规范
+| 前缀 | 说明 |
+|------|------|
+| `feat:` | 新功能 |
+| `fix:` | 修复 bug |
+| `docs:` | 文档更新 |
+| `style:` | 代码格式调整（不影响逻辑） |
+| `refactor:` | 代码重构 |
+| `chore:` | 构建工具或配置变更 |
 
-* 组件命名采用PascalCase
+### 7.3 接口规范
 
-* 文件命名采用camelCase
-
-* 常量命名采用UPPER\_SNAKE\_CASE
-
-### 8.2 Git提交规范
-
-* feat: 新功能
-
-* fix: 修复bug
-
-* docs: 文档更新
-
-* style: 代码格式调整
-
-* refactor: 代码重构
-
-* test: 测试相关
-
-* chore: 构建过程或辅助工具的变动
-
-### 8.3 接口规范
-
-* 统一使用RESTful风格
-
-* 接口前缀：/api/v1
-
-* 返回数据格式统一封装
-
-* 错误码规范统一
-
+- 统一 RESTful 风格，前缀 `/api/v1`
+- 认证：`Authorization: Bearer {token}` Header
+- 分页：使用 `skip`/`limit` 参数（非 `page`/`pageSize`）
+- 错误响应格式：`{"detail": "错误描述"}`
+- HTTP 状态码语义：401 未认证、403 无权限、404 资源不存在
