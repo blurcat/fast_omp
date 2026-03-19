@@ -1,6 +1,4 @@
-import json
-from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 
 _INSECURE_DEFAULT_KEY = "CHANGE_THIS_IN_PRODUCTION_SECRET_KEY"
@@ -10,6 +8,12 @@ class Settings(BaseSettings):
     系统配置类
     基于 Pydantic Settings 管理环境变量，自动读取 .env 文件
     """
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        env_list_delimiter=",",
+    )
+
     PROJECT_NAME: str = "Ops Middle Platform"
     API_V1_STR: str = "/api/v1"
 
@@ -31,19 +35,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Token 过期时间（分钟）
 
-    # CORS 允许的来源列表（逗号分隔或 JSON 数组，生产环境请配置具体域名）
+    # CORS 允许的来源列表（逗号分隔，生产环境请配置具体域名）
     # 示例: ALLOWED_ORIGINS=https://yourdomain.com,https://admin.yourdomain.com
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000", "http://localhost"]
-
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_allowed_origins(cls, v: object) -> object:
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except (json.JSONDecodeError, ValueError):
-                return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
 
     # Redis 配置 (用于缓存和 Celery)
     REDIS_HOST: str = "localhost"
@@ -53,10 +47,6 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: str = "admin"
     FIRST_SUPERUSER_PASSWORD: str = "admin123"
     FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
     @property
     def is_insecure_secret_key(self) -> bool:
