@@ -14,6 +14,7 @@ class Settings(BaseSettings):
         env_file=".env",
         case_sensitive=True,
         env_list_delimiter=",",
+        extra="ignore",
     )
 
     PROJECT_NAME: str = "Ops Middle Platform"
