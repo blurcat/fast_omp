@@ -80,8 +80,7 @@ class ResourceResponse(ResourceBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    # Use string forward reference if we want to include groups here
-    # But for now let's keep it simple and just use ResourceGroupResponse (which doesn't have resources)
+    ip_address: Optional[str] = None  # override: existing records may have NULL
     groups: List[ResourceGroupResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
