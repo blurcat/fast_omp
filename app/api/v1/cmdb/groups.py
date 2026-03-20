@@ -148,6 +148,7 @@ async def add_resource_to_group(
     group_id: int,
     resource_id: int,
     current_user = Depends(deps.get_current_active_user),
+    request: Request,
 ) -> Any:
     """
     将资源添加到分组
@@ -157,18 +158,28 @@ async def add_resource_to_group(
     group = g_res.scalars().first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-        
+
     # Check resource
     r_res = await db.execute(select(Resource).where(Resource.id == resource_id))
     resource = r_res.scalars().first()
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
-        
+
     if resource not in group.resources:
         group.resources.append(resource)
         await db.commit()
         await db.refresh(group)
-        
+
+    await create_audit_log(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="add_member",
+        target_type="resource_group",
+        target_id=str(group_id),
+        details={"group_name": group.name, "resource_id": resource_id, "resource_name": resource.name},
+        ip_address=request.client.host if request.client else None
+    )
     return group
 
 @router.delete("/{group_id}/resources/{resource_id}", response_model=ResourceGroupResponse)
@@ -178,6 +189,7 @@ async def remove_resource_from_group(
     group_id: int,
     resource_id: int,
     current_user = Depends(deps.get_current_active_user),
+    request: Request,
 ) -> Any:
     """
     从分组移除资源
@@ -187,16 +199,26 @@ async def remove_resource_from_group(
     group = g_res.scalars().first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-        
+
     # Check resource
     r_res = await db.execute(select(Resource).where(Resource.id == resource_id))
     resource = r_res.scalars().first()
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
-        
+
     if resource in group.resources:
         group.resources.remove(resource)
         await db.commit()
         await db.refresh(group)
-        
+
+    await create_audit_log(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="remove_member",
+        target_type="resource_group",
+        target_id=str(group_id),
+        details={"group_name": group.name, "resource_id": resource_id, "resource_name": resource.name},
+        ip_address=request.client.host if request.client else None
+    )
     return group

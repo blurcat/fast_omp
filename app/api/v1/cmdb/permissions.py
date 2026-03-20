@@ -42,6 +42,16 @@ async def create_permission(
         db.add(existing)
         await db.commit()
         await db.refresh(existing)
+        await create_audit_log(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            target_type="permission",
+            target_id=str(existing.id),
+            details=perm_in.model_dump(),
+            ip_address=request.client.host if request.client else None
+        )
         return existing
         
     permission = ResourcePermission(
@@ -100,18 +110,28 @@ async def revoke_permission(
     perm = result.scalars().first()
     if not perm:
         raise HTTPException(status_code=404, detail="Permission not found")
-        
+
+    # commit 前保存数据，commit 后 ORM 对象属性过期
+    perm_id_str = str(perm.id)
+    perm_details = {
+        "id": perm.id,
+        "user_id": perm.user_id,
+        "resource_id": perm.resource_id,
+        "group_id": perm.group_id,
+        "permission": perm.permission,
+    }
+
     await db.delete(perm)
     await db.commit()
-    
+
     await create_audit_log(
         db,
         user_id=current_user.id,
         username=current_user.username,
         action="revoke",
         target_type="permission",
-        target_id=str(perm.id),
-        details={"id": perm.id},
+        target_id=perm_id_str,
+        details=perm_details,
         ip_address=request.client.host if request.client else None
     )
-    return perm
+    return perm_details

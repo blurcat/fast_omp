@@ -28,6 +28,17 @@ async def login_access_token(
     
     # 验证用户是否存在及密码是否正确
     if not user or not verify_password(form_data.password, user.hashed_password):
+        # 记录登录失败日志
+        await create_audit_log(
+            db,
+            user_id=user.id if user else None,
+            username=form_data.username,
+            action="login_failed",
+            target_type="auth",
+            target_id=str(user.id) if user else "0",
+            details={"reason": "用户名或密码错误"},
+            ip_address=request.client.host if request.client else None
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
@@ -36,6 +47,16 @@ async def login_access_token(
         
     # 验证用户是否激活
     if not user.is_active:
+        await create_audit_log(
+            db,
+            user_id=user.id,
+            username=user.username,
+            action="login_failed",
+            target_type="auth",
+            target_id=str(user.id),
+            details={"reason": "用户未激活"},
+            ip_address=request.client.host if request.client else None
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户未激活")
         
     # 生成 Access Token
