@@ -147,6 +147,17 @@ async def create_resource(
     """
     创建新资源
     """
+    # 检查同一云厂商下 IP 是否已存在
+    if resource_in.ip_address:
+        dup = await db.execute(
+            select(Resource).where(
+                Resource.provider == resource_in.provider,
+                Resource.ip_address == resource_in.ip_address,
+            )
+        )
+        if dup.scalars().first():
+            raise HTTPException(status_code=409, detail=f"该云厂商（{resource_in.provider}）下 IP {resource_in.ip_address} 已存在")
+
     resource = Resource(
         name=resource_in.name,
         type=resource_in.type,
@@ -268,7 +279,21 @@ async def update_resource(
     resource = result.scalars().first()
     if not resource:
         raise HTTPException(status_code=404, detail="未找到该资源")
-        
+
+    # 检查更新后的 provider+ip 是否与其他资源重复
+    new_provider = resource_in.provider if resource_in.provider is not None else resource.provider
+    new_ip = resource_in.ip_address if resource_in.ip_address is not None else resource.ip_address
+    if new_ip:
+        dup = await db.execute(
+            select(Resource).where(
+                Resource.provider == new_provider,
+                Resource.ip_address == new_ip,
+                Resource.id != resource_id,
+            )
+        )
+        if dup.scalars().first():
+            raise HTTPException(status_code=409, detail=f"该云厂商（{new_provider}）下 IP {new_ip} 已存在")
+
     # 更新字段
     update_data = resource_in.model_dump(exclude_unset=True)
     

@@ -1,4 +1,4 @@
-from sqlalchemy import String, JSON, ForeignKey, Table, Column, Integer, Enum
+from sqlalchemy import String, JSON, ForeignKey, Table, Column, Integer, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 import enum
@@ -53,7 +53,10 @@ class Resource(Base, TimestampMixin):
     存储所有类型的云资源和本地资源
     """
     __tablename__ = "cmdb_resources"
-    
+    __table_args__ = (
+        UniqueConstraint("provider", "ip_address", name="uq_resource_provider_ip"),
+    )
+
     id: Mapped[int] = mapped_column(primary_key=True, index=True, comment="资源ID")
     name: Mapped[str] = mapped_column(String(255), index=True, comment="资源名称/实例名")
     
