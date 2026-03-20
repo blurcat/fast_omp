@@ -45,7 +45,7 @@ class ResourceBase(BaseModel):
     category: Optional[str] = None
     provider: str
     region: Optional[str] = None
-    ip_address: Optional[str] = None
+    ip_address: str
     description: Optional[str] = None
     location: Optional[str] = None
     status: str = "unknown"

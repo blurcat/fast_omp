@@ -101,6 +101,9 @@ const Assets: React.FC = () => {
       title: 'IP地址',
       dataIndex: 'ip_address',
       copyable: true,
+      formItemProps: {
+        rules: [{ required: true, message: 'IP地址为必填项' }],
+      },
     },
     {
       title: '类型',
