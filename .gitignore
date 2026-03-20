@@ -1,5 +1,8 @@
 # 环境变量（包含密钥，绝对不能提交）
 .env
+
+# 开发环境 Docker 覆盖配置（本地专用，不影响生产）
+docker-compose.override.yml
 *.env.local
 
 # Python
