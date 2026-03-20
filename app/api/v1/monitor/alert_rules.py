@@ -8,6 +8,7 @@ from app.api import deps
 from app.core.database import get_db
 from app.models.monitor import AlertRule, AlertChannel
 from app.schemas.monitor import AlertRuleCreate, AlertRuleResponse, AlertRuleUpdate
+from app.schemas.system import MessageResponse
 
 router = APIRouter()
 
@@ -18,6 +19,7 @@ async def list_rules(
     skip: int = 0, limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取告警规则列表"""
     result = await db.execute(
         select(AlertRule).options(selectinload(AlertRule.channels)).offset(skip).limit(limit)
     )
@@ -30,6 +32,7 @@ async def create_rule(
     rule_in: AlertRuleCreate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """创建新的告警规则"""
     channel_ids = rule_in.channel_ids
     data = rule_in.model_dump(exclude={"channel_ids"})
     rule = AlertRule(**data)
@@ -48,13 +51,14 @@ async def create_rule(
     return result.scalars().first()
 
 
-@router.put("/{rule_id}", response_model=AlertRuleResponse)
+@router.put("/{rule_id}", response_model=AlertRuleResponse, responses={404: {"description": "规则不存在"}})
 async def update_rule(
     *, db: AsyncSession = Depends(get_db),
     rule_id: int,
     rule_in: AlertRuleUpdate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """更新告警规则"""
     result = await db.execute(
         select(AlertRule).where(AlertRule.id == rule_id).options(selectinload(AlertRule.channels))
     )
@@ -78,12 +82,13 @@ async def update_rule(
     return result.scalars().first()
 
 
-@router.delete("/{rule_id}")
+@router.delete("/{rule_id}", response_model=MessageResponse, responses={404: {"description": "规则不存在"}})
 async def delete_rule(
     *, db: AsyncSession = Depends(get_db),
     rule_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """删除告警规则"""
     result = await db.execute(select(AlertRule).where(AlertRule.id == rule_id))
     rule = result.scalars().first()
     if not rule:

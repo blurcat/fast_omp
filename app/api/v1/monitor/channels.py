@@ -7,6 +7,7 @@ from app.api import deps
 from app.core.database import get_db
 from app.models.monitor import AlertChannel
 from app.schemas.monitor import AlertChannelCreate, AlertChannelResponse, AlertChannelUpdate
+from app.schemas.system import MessageResponse
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ async def list_channels(
     skip: int = 0, limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取告警渠道列表"""
     result = await db.execute(select(AlertChannel).offset(skip).limit(limit))
     return result.scalars().all()
 
@@ -27,6 +29,7 @@ async def create_channel(
     channel_in: AlertChannelCreate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """创建新的告警渠道"""
     channel = AlertChannel(**channel_in.model_dump())
     db.add(channel)
     await db.commit()
@@ -34,13 +37,14 @@ async def create_channel(
     return channel
 
 
-@router.put("/{channel_id}", response_model=AlertChannelResponse)
+@router.put("/{channel_id}", response_model=AlertChannelResponse, responses={404: {"description": "渠道不存在"}})
 async def update_channel(
     *, db: AsyncSession = Depends(get_db),
     channel_id: int,
     channel_in: AlertChannelUpdate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """更新告警渠道信息"""
     result = await db.execute(select(AlertChannel).where(AlertChannel.id == channel_id))
     channel = result.scalars().first()
     if not channel:
@@ -52,12 +56,13 @@ async def update_channel(
     return channel
 
 
-@router.delete("/{channel_id}")
+@router.delete("/{channel_id}", response_model=MessageResponse, responses={404: {"description": "渠道不存在"}})
 async def delete_channel(
     *, db: AsyncSession = Depends(get_db),
     channel_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """删除告警渠道"""
     result = await db.execute(select(AlertChannel).where(AlertChannel.id == channel_id))
     channel = result.scalars().first()
     if not channel:

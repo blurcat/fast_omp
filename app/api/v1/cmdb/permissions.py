@@ -7,6 +7,7 @@ from app.api import deps
 from app.core.database import get_db
 from app.models.cmdb import ResourcePermission, PermissionType
 from app.schemas.cmdb import ResourcePermissionCreate, ResourcePermissionResponse
+from app.schemas.system import MessageResponse
 from app.core.audit import create_audit_log
 
 router = APIRouter()
@@ -95,7 +96,7 @@ async def list_permissions(
     result = await db.execute(stmt)
     return result.scalars().all()
 
-@router.delete("/{perm_id}", response_model=ResourcePermissionResponse)
+@router.delete("/{perm_id}", response_model=MessageResponse)
 async def revoke_permission(
     *,
     db: AsyncSession = Depends(get_db),
@@ -134,4 +135,4 @@ async def revoke_permission(
         details=perm_details,
         ip_address=request.client.host if request.client else None
     )
-    return perm_details
+    return {"message": f"Permission {perm_id_str} revoked"}

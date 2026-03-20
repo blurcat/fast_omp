@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -47,23 +47,26 @@ async def list_metrics(
     db: AsyncSession = Depends(get_db),
     resource_id: Optional[int] = None,
     metric: Optional[str] = None,
+    skip: int = 0,
     limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取指标记录列表，支持按资源和指标名称过滤"""
     stmt = select(MetricRecord)
     if resource_id:
         stmt = stmt.where(MetricRecord.resource_id == resource_id)
     if metric:
         stmt = stmt.where(MetricRecord.metric == metric)
-    stmt = stmt.order_by(MetricRecord.collected_at.desc()).limit(limit)
+    stmt = stmt.order_by(MetricRecord.collected_at.desc()).offset(skip).limit(limit)
     result = await db.execute(stmt)
     return result.scalars().all()
 
 
-@router.post("/evaluate", summary="手动触发告警规则评估")
+@router.post("/evaluate", summary="手动触发告警规则评估", response_model=Dict[str, int])
 async def trigger_evaluation(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """手动触发告警规则评估，返回触发的告警数量"""
     count = await evaluate_rules(db)
     return {"fired_alerts": count}

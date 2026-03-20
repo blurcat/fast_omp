@@ -7,6 +7,7 @@ from app.api import deps
 from app.core.database import get_db
 from app.models.credentials import Credential
 from app.schemas.credentials import CredentialCreate, CredentialResponse, CredentialUpdate
+from app.schemas.system import MessageResponse
 
 router = APIRouter()
 
@@ -28,16 +29,18 @@ async def list_credentials(
     skip: int = 0, limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取凭证列表"""
     result = await db.execute(select(Credential).offset(skip).limit(limit))
     return result.scalars().all()
 
 
-@router.post("/", response_model=CredentialResponse)
+@router.post("/", response_model=CredentialResponse, responses={409: {"description": "凭证名称已存在"}})
 async def create_credential(
     *, db: AsyncSession = Depends(get_db),
     cred_in: CredentialCreate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """创建新的凭证"""
     # Check duplicate name
     existing = await db.execute(select(Credential).where(Credential.name == cred_in.name))
     if existing.scalars().first():
@@ -55,13 +58,14 @@ async def create_credential(
     return cred
 
 
-@router.put("/{cred_id}", response_model=CredentialResponse)
+@router.put("/{cred_id}", response_model=CredentialResponse, responses={404: {"description": "凭证不存在"}, 409: {"description": "凭证名称已存在"}})
 async def update_credential(
     *, db: AsyncSession = Depends(get_db),
     cred_id: int,
     cred_in: CredentialUpdate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """更新凭证信息"""
     result = await db.execute(select(Credential).where(Credential.id == cred_id))
     cred = result.scalars().first()
     if not cred:
@@ -75,12 +79,13 @@ async def update_credential(
     return cred
 
 
-@router.delete("/{cred_id}")
+@router.delete("/{cred_id}", response_model=MessageResponse, responses={404: {"description": "凭证不存在"}})
 async def delete_credential(
     *, db: AsyncSession = Depends(get_db),
     cred_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """删除凭证"""
     result = await db.execute(select(Credential).where(Credential.id == cred_id))
     cred = result.scalars().first()
     if not cred:

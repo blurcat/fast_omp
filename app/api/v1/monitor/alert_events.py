@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,7 @@ from app.api import deps
 from app.core.database import get_db
 from app.models.monitor import AlertEvent, AlertStatus
 from app.schemas.monitor import AlertEventCreate, AlertEventResponse
+from app.schemas.system import MessageResponse
 
 router = APIRouter()
 
@@ -15,11 +16,12 @@ router = APIRouter()
 @router.get("/", response_model=List[AlertEventResponse])
 async def list_events(
     db: AsyncSession = Depends(get_db),
-    status: Optional[str] = None,
-    severity: Optional[str] = None,
+    status: Optional[Literal["firing", "acknowledged", "resolved"]] = None,
+    severity: Optional[Literal["info", "warning", "critical"]] = None,
     skip: int = 0, limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取告警事件列表，支持按状态和严重程度过滤"""
     stmt = select(AlertEvent)
     if status:
         stmt = stmt.where(AlertEvent.status == status)
@@ -44,12 +46,13 @@ async def create_event(
     return event
 
 
-@router.post("/{event_id}/acknowledge", response_model=AlertEventResponse)
+@router.post("/{event_id}/acknowledge", response_model=AlertEventResponse, responses={404: {"description": "事件不存在"}})
 async def acknowledge_event(
     *, db: AsyncSession = Depends(get_db),
     event_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """确认告警事件"""
     result = await db.execute(select(AlertEvent).where(AlertEvent.id == event_id))
     event = result.scalars().first()
     if not event:
@@ -62,12 +65,13 @@ async def acknowledge_event(
     return event
 
 
-@router.post("/{event_id}/resolve", response_model=AlertEventResponse)
+@router.post("/{event_id}/resolve", response_model=AlertEventResponse, responses={404: {"description": "事件不存在"}})
 async def resolve_event(
     *, db: AsyncSession = Depends(get_db),
     event_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """解决告警事件"""
     result = await db.execute(select(AlertEvent).where(AlertEvent.id == event_id))
     event = result.scalars().first()
     if not event:

@@ -100,3 +100,7 @@ class Token(BaseModel):
 class TokenPayload(BaseModel):
     """Token 载荷模型"""
     sub: Optional[str] = None
+
+
+class MessageResponse(BaseModel):
+    message: str

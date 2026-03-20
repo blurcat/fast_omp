@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.schemas.inspections import (
     InspectionTemplateCreate, InspectionTemplateResponse, InspectionTemplateUpdate,
     InspectionTaskCreate, InspectionTaskResponse,
 )
+from app.schemas.system import MessageResponse
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ async def list_templates(
     skip: int = 0, limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取巡检模板列表"""
     result = await db.execute(select(InspectionTemplate).offset(skip).limit(limit))
     return result.scalars().all()
 
@@ -33,6 +35,7 @@ async def create_template(
     tmpl_in: InspectionTemplateCreate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """创建新的巡检模板"""
     tmpl = InspectionTemplate(**tmpl_in.model_dump(), created_by=current_user.username)
     db.add(tmpl)
     await db.commit()
@@ -40,13 +43,14 @@ async def create_template(
     return tmpl
 
 
-@router.put("/templates/{tmpl_id}", response_model=InspectionTemplateResponse)
+@router.put("/templates/{tmpl_id}", response_model=InspectionTemplateResponse, responses={404: {"description": "不存在"}})
 async def update_template(
     *, db: AsyncSession = Depends(get_db),
     tmpl_id: int,
     tmpl_in: InspectionTemplateUpdate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """更新巡检模板"""
     result = await db.execute(select(InspectionTemplate).where(InspectionTemplate.id == tmpl_id))
     tmpl = result.scalars().first()
     if not tmpl:
@@ -58,12 +62,13 @@ async def update_template(
     return tmpl
 
 
-@router.delete("/templates/{tmpl_id}")
+@router.delete("/templates/{tmpl_id}", response_model=MessageResponse, responses={404: {"description": "不存在"}})
 async def delete_template(
     *, db: AsyncSession = Depends(get_db),
     tmpl_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """删除巡检模板"""
     result = await db.execute(select(InspectionTemplate).where(InspectionTemplate.id == tmpl_id))
     tmpl = result.scalars().first()
     if not tmpl:
@@ -78,10 +83,11 @@ async def delete_template(
 @router.get("/tasks", response_model=List[InspectionTaskResponse])
 async def list_tasks(
     db: AsyncSession = Depends(get_db),
-    status: Optional[str] = None,
+    status: Optional[Literal["pending", "running", "completed", "failed"]] = None,
     skip: int = 0, limit: int = 50,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取巡检任务列表，支持按状态过滤"""
     stmt = select(InspectionTask)
     if status:
         stmt = stmt.where(InspectionTask.status == status)
@@ -96,6 +102,7 @@ async def create_task(
     task_in: InspectionTaskCreate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """创建新的巡检任务"""
     task = InspectionTask(**task_in.model_dump(), created_by=current_user.username)
     db.add(task)
     await db.commit()
@@ -103,12 +110,13 @@ async def create_task(
     return task
 
 
-@router.post("/tasks/{task_id}/run", response_model=InspectionTaskResponse)
+@router.post("/tasks/{task_id}/run", response_model=InspectionTaskResponse, responses={404: {"description": "不存在"}})
 async def run_task(
     *, db: AsyncSession = Depends(get_db),
     task_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """执行巡检任务"""
     result = await db.execute(select(InspectionTask).where(InspectionTask.id == task_id))
     task = result.scalars().first()
     if not task:
@@ -124,12 +132,13 @@ async def run_task(
     return task
 
 
-@router.delete("/tasks/{task_id}")
+@router.delete("/tasks/{task_id}", response_model=MessageResponse, responses={404: {"description": "不存在"}})
 async def delete_task(
     *, db: AsyncSession = Depends(get_db),
     task_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """删除巡检任务"""
     result = await db.execute(select(InspectionTask).where(InspectionTask.id == task_id))
     task = result.scalars().first()
     if not task:

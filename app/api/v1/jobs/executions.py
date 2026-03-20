@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,10 +19,11 @@ router = APIRouter()
 @router.get("/", response_model=List[JobExecutionResponse])
 async def list_executions(
     db: AsyncSession = Depends(get_db),
-    status: Optional[str] = None,
+    status: Optional[Literal["pending", "running", "completed", "failed", "cancelled"]] = None,
     skip: int = 0, limit: int = 50,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取作业执行记录列表，支持按状态过滤"""
     stmt = select(JobExecution).options(selectinload(JobExecution.logs))
     if status:
         stmt = stmt.where(JobExecution.status == status)
@@ -106,12 +107,13 @@ async def create_execution(
     return reload_result.scalars().first()
 
 
-@router.get("/{execution_id}", response_model=JobExecutionResponse)
+@router.get("/{execution_id}", response_model=JobExecutionResponse, responses={404: {"description": "执行记录不存在"}})
 async def get_execution(
     *, db: AsyncSession = Depends(get_db),
     execution_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取作业执行记录详情"""
     result = await db.execute(
         select(JobExecution).where(JobExecution.id == execution_id).options(selectinload(JobExecution.logs))
     )

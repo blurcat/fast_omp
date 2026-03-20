@@ -7,6 +7,7 @@ from app.api import deps
 from app.core.database import get_db
 from app.models.jobs import JobTemplate
 from app.schemas.jobs import JobTemplateCreate, JobTemplateResponse, JobTemplateUpdate
+from app.schemas.system import MessageResponse
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ async def list_templates(
     skip: int = 0, limit: int = 100,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取作业模板列表"""
     result = await db.execute(select(JobTemplate).offset(skip).limit(limit))
     return result.scalars().all()
 
@@ -27,6 +29,7 @@ async def create_template(
     template_in: JobTemplateCreate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """创建新的作业模板"""
     template = JobTemplate(**template_in.model_dump(), created_by=current_user.username)
     db.add(template)
     await db.commit()
@@ -34,12 +37,13 @@ async def create_template(
     return template
 
 
-@router.get("/{template_id}", response_model=JobTemplateResponse)
+@router.get("/{template_id}", response_model=JobTemplateResponse, responses={404: {"description": "模板不存在"}})
 async def get_template(
     *, db: AsyncSession = Depends(get_db),
     template_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """获取作业模板详情"""
     result = await db.execute(select(JobTemplate).where(JobTemplate.id == template_id))
     template = result.scalars().first()
     if not template:
@@ -47,13 +51,14 @@ async def get_template(
     return template
 
 
-@router.put("/{template_id}", response_model=JobTemplateResponse)
+@router.put("/{template_id}", response_model=JobTemplateResponse, responses={404: {"description": "模板不存在"}})
 async def update_template(
     *, db: AsyncSession = Depends(get_db),
     template_id: int,
     template_in: JobTemplateUpdate,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """更新作业模板"""
     result = await db.execute(select(JobTemplate).where(JobTemplate.id == template_id))
     template = result.scalars().first()
     if not template:
@@ -65,12 +70,13 @@ async def update_template(
     return template
 
 
-@router.delete("/{template_id}")
+@router.delete("/{template_id}", response_model=MessageResponse, responses={404: {"description": "模板不存在"}})
 async def delete_template(
     *, db: AsyncSession = Depends(get_db),
     template_id: int,
     current_user=Depends(deps.get_current_active_user),
 ) -> Any:
+    """删除作业模板"""
     result = await db.execute(select(JobTemplate).where(JobTemplate.id == template_id))
     template = result.scalars().first()
     if not template:

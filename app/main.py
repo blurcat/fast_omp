@@ -2,8 +2,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+from pydantic import BaseModel
 from app.core.config import settings
 from app.api.v1.api import api_router
+
+
+class HealthResponse(BaseModel):
+    status: str
+    version: str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,12 +52,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """
-    健康检查接口
-    用于 K8S livenessProbe 或负载均衡健康检查
-    """
+    """服务健康检查"""
     return {"status": "ok", "version": "1.0.0"}
 
 # 注册 API 路由
