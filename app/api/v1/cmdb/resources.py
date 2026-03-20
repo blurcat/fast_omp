@@ -172,9 +172,11 @@ async def create_resource(
         result = await db.execute(stmt)
         groups = result.scalars().all()
         if groups:
-            # Re-fetch with options to ensure we can modify relationship
-            # Or since we know it is new and empty, we might just set it.
-            # But to be safe with SQLAlchemy async:
+            # 异步环境下必须先 selectinload 加载关系，再赋值，否则触发懒加载报 MissingGreenlet
+            res_result = await db.execute(
+                select(Resource).options(selectinload(Resource.groups)).where(Resource.id == resource.id)
+            )
+            resource = res_result.scalars().first()
             resource.groups = list(groups)
             await db.commit()
             await db.refresh(resource)
