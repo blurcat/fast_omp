@@ -1,10 +1,10 @@
 import request from '../utils/request';
 
 export const getChanges = (params?: any) =>
-  request.get('/changes', { params });
+  request.get('/changes/', { params });
 
 export const createChange = (data: any) =>
-  request.post('/changes', data);
+  request.post('/changes/', data);
 
 export const updateChange = (id: number, data: any) =>
   request.put(`/changes/${id}`, data);
