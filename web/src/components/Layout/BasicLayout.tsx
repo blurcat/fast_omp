@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { ProLayout } from '@ant-design/pro-components';
 import { Link, useLocation, useNavigate, Outlet, Navigate } from 'react-router-dom';
 import * as Icons from '@ant-design/icons';
-import { Dropdown, message } from 'antd';
+import { Dropdown, message, Tooltip } from 'antd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchUserProfile, logout } from '../../store/slices/authSlice';
 import { getMenus, type Menu } from '../../services/menus';
 
-const { LogoutOutlined, UserOutlined } = Icons;
+const { LogoutOutlined, UserOutlined, QuestionCircleOutlined } = Icons;
 
 // 动态图标渲染组件
 const DynamicIcon = ({ icon }: { icon: string }) => {
@@ -106,6 +106,18 @@ const BasicLayout: React.FC = () => {
         menuItemRender={(item, dom) => (
           <Link to={item.path || '/'}>{dom}</Link>
         )}
+        actionsRender={() => [
+          <Tooltip key="docs" title="使用文档">
+            <a
+              href="/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'rgba(255,255,255,0.85)', fontSize: 18, display: 'flex', alignItems: 'center', padding: '0 8px' }}
+            >
+              <QuestionCircleOutlined />
+            </a>
+          </Tooltip>,
+        ]}
         avatarProps={{
           icon: <UserOutlined />,
           title: user?.username || 'Admin',

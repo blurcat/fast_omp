@@ -6,6 +6,7 @@ import zhCN from 'antd/locale/zh_CN';
 import { store } from './store';
 import BasicLayout from './components/Layout/BasicLayout';
 import Login from './pages/Login';
+import Docs from './pages/Docs';
 import Dashboard from './pages/Dashboard';
 import Assets from './pages/Assets';
 import Users from './pages/Settings/Users';
@@ -31,6 +32,7 @@ const App: React.FC = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/docs" element={<Docs />} />
             <Route path="/" element={<BasicLayout />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
