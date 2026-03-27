@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { Button, message, Popconfirm, Drawer, List, Tag, Select } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { getAssetGroups, getAssetGroup, createAssetGroup, updateAssetGroup, deleteAssetGroup, addAssetToGroup, removeAssetFromGroup, type AssetGroup } from '../../../services/groups';
+import { getAssetGroups, getAssetGroup, createAssetGroup, updateAssetGroup, deleteAssetGroup, batchAddAssetsToGroup, removeAssetFromGroup, type AssetGroup } from '../../../services/groups';
 import { getAssets } from '../../../services/assets';
 import { ModalForm, ProFormText, ProFormTextArea } from '@ant-design/pro-components';
 import type { Resource } from '../../../types';
@@ -12,11 +12,10 @@ const AssetGroups: React.FC = () => {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [currentRow, setCurrentRow] = useState<AssetGroup>();
   const [detailVisible, setDetailVisible] = useState(false);
-  
-  // Group members state
+
   const [groupMembers, setGroupMembers] = useState<Resource[]>([]);
   const [allAssets, setAllAssets] = useState<Resource[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState<number>();
+  const [selectedAssetIds, setSelectedAssetIds] = useState<number[]>([]);
 
   useEffect(() => {
     if (detailVisible && currentRow) {
@@ -26,44 +25,46 @@ const AssetGroups: React.FC = () => {
   }, [detailVisible, currentRow]);
 
   const fetchGroupDetails = async (id: number) => {
-      try {
-          const group = await getAssetGroup(id);
-          setGroupMembers(group.resources || []);
-      } catch (error) {
-          console.error('Failed to fetch group details', error);
-      }
-  };
-  
-  const fetchAllAssets = async () => {
-      try {
-          const res = await getAssets();
-          setAllAssets(res || []);
-      } catch (error) {
-          message.error('获取资产列表失败');
-      }
+    try {
+      const group = await getAssetGroup(id);
+      setGroupMembers(group.resources || []);
+    } catch (error) {
+      console.error('Failed to fetch group details', error);
+    }
   };
 
-  const handleAddMember = async () => {
-      if (!currentRow || !selectedAssetId) return;
-      try {
-          await addAssetToGroup(currentRow.id, selectedAssetId);
-          message.success('添加成功');
-          fetchGroupDetails(currentRow.id);
-          setSelectedAssetId(undefined);
-      } catch (error) {
-          message.error('添加失败');
-      }
+  const fetchAllAssets = async () => {
+    try {
+      const res = await getAssets({ limit: 500 });
+      setAllAssets(res?.items || []);
+    } catch (error) {
+      message.error('获取资产列表失败');
+    }
+  };
+
+  const handleBatchAddMembers = async () => {
+    if (!currentRow || !selectedAssetIds.length) return;
+    try {
+      const res = await batchAddAssetsToGroup(currentRow.id, selectedAssetIds);
+      message.success(res.message);
+      fetchGroupDetails(currentRow.id);
+      setSelectedAssetIds([]);
+      actionRef.current?.reload();
+    } catch (error) {
+      message.error('添加失败');
+    }
   };
 
   const handleRemoveMember = async (resourceId: number) => {
-      if (!currentRow) return;
-      try {
-          await removeAssetFromGroup(currentRow.id, resourceId);
-          message.success('移除成功');
-          fetchGroupDetails(currentRow.id);
-      } catch (error) {
-          message.error('移除失败');
-      }
+    if (!currentRow) return;
+    try {
+      await removeAssetFromGroup(currentRow.id, resourceId);
+      message.success('移除成功');
+      fetchGroupDetails(currentRow.id);
+      actionRef.current?.reload();
+    } catch (error) {
+      message.error('移除失败');
+    }
   };
 
   const handleCreate = async (values: any) => {
@@ -93,6 +94,11 @@ const AssetGroups: React.FC = () => {
     }
   };
 
+  // Assets not yet in this group
+  const availableAssets = allAssets.filter(
+    a => !groupMembers.some(m => m.id === a.id)
+  );
+
   const columns: ProColumns<AssetGroup>[] = [
     {
       title: 'ID',
@@ -108,6 +114,14 @@ const AssetGroups: React.FC = () => {
       title: '描述',
       dataIndex: 'description',
       search: false,
+      ellipsis: true,
+    },
+    {
+      title: '资产数量',
+      dataIndex: 'resource_count',
+      search: false,
+      width: 90,
+      render: (val) => <Tag color="blue">{val as number}</Tag>,
     },
     {
       title: '创建时间',
@@ -139,7 +153,7 @@ const AssetGroups: React.FC = () => {
         </a>,
         <Popconfirm
           key="delete"
-          title="确定删除吗？"
+          title="确定删除吗？删除分组不会删除分组内资产。"
           onConfirm={() => handleDelete(record.id)}
         >
           <a style={{ color: 'red' }}>删除</a>
@@ -154,9 +168,7 @@ const AssetGroups: React.FC = () => {
         headerTitle="资产分组"
         actionRef={actionRef}
         rowKey="id"
-        search={{
-          labelWidth: 120,
-        }}
+        search={{ labelWidth: 120 }}
         toolBarRender={() => [
           <Button
             type="primary"
@@ -170,12 +182,14 @@ const AssetGroups: React.FC = () => {
           </Button>,
         ]}
         request={async (params) => {
-            // Need to adjust if API supports pagination in params, currently it returns all list
-            const result = await getAssetGroups(params);
-            return {
-                data: result,
-                success: true,
-            };
+          const { current = 1, pageSize = 20, name, ...rest } = params;
+          const skip = (current - 1) * pageSize;
+          const result = await getAssetGroups({ skip, limit: pageSize, name, ...rest });
+          return {
+            data: result,
+            success: true,
+            total: result.length,
+          };
         }}
         columns={columns}
       />
@@ -187,73 +201,84 @@ const AssetGroups: React.FC = () => {
         onOpenChange={setCreateModalVisible}
         onFinish={handleCreate}
         initialValues={currentRow}
-        modalProps={{
-            destroyOnClose: true
-        }}
+        modalProps={{ destroyOnClose: true }}
       >
         <ProFormText
           name="name"
           label="分组名称"
           rules={[{ required: true, message: '请输入分组名称' }]}
         />
-        <ProFormTextArea
-          name="description"
-          label="描述"
-        />
+        <ProFormTextArea name="description" label="描述" />
       </ModalForm>
 
       <Drawer
-        width={600}
+        width={640}
         open={detailVisible}
         onClose={() => {
-            setDetailVisible(false);
-            setCurrentRow(undefined);
-            setGroupMembers([]);
+          setDetailVisible(false);
+          setCurrentRow(undefined);
+          setGroupMembers([]);
+          setSelectedAssetIds([]);
         }}
-        closable={true}
-        title={currentRow ? `${currentRow.name} - 资产成员管理` : '资产成员管理'}
+        closable
+        title={currentRow ? `${currentRow.name} — 资产成员管理` : '资产成员管理'}
       >
-        <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 500 }}>批量添加资产</div>
+          <div style={{ display: 'flex', gap: 8 }}>
             <Select
-                showSearch
-                style={{ flex: 1 }}
-                placeholder="选择资产添加至分组"
-                optionFilterProp="children"
-                onChange={(value) => setSelectedAssetId(value)}
-                value={selectedAssetId}
-                filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-                options={allAssets.map(asset => ({
-                    label: `${asset.name} (${asset.ip_address || 'No IP'})`,
-                    value: asset.id
-                }))}
+              mode="multiple"
+              showSearch
+              style={{ flex: 1 }}
+              placeholder="选择一个或多个资产"
+              optionFilterProp="label"
+              onChange={(values) => setSelectedAssetIds(values as number[])}
+              value={selectedAssetIds}
+              options={availableAssets.map(asset => ({
+                label: `${asset.name}${asset.ip_address ? ` (${asset.ip_address})` : ''}`,
+                value: asset.id,
+              }))}
             />
-            <Button type="primary" onClick={handleAddMember} disabled={!selectedAssetId}>
-                <PlusOutlined /> 添加
+            <Button
+              type="primary"
+              onClick={handleBatchAddMembers}
+              disabled={!selectedAssetIds.length}
+            >
+              <PlusOutlined /> 添加
             </Button>
+          </div>
         </div>
-        
+
+        <div style={{ marginBottom: 8, color: '#666' }}>
+          当前成员（{groupMembers.length} 个资产）
+        </div>
         <List
-            itemLayout="horizontal"
-            dataSource={groupMembers}
-            renderItem={(item) => (
-                <List.Item
-                    actions={[
-                        <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleRemoveMember(item.id)}>移除</Button>
-                    ]}
+          itemLayout="horizontal"
+          dataSource={groupMembers}
+          renderItem={(item) => (
+            <List.Item
+              actions={[
+                <Button
+                  type="link"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleRemoveMember(item.id)}
                 >
-                    <List.Item.Meta
-                        title={item.name}
-                        description={
-                            <>
-                                <Tag>{item.type}</Tag>
-                                {item.ip_address}
-                            </>
-                        }
-                    />
-                </List.Item>
-            )}
+                  移除
+                </Button>
+              ]}
+            >
+              <List.Item.Meta
+                title={item.name}
+                description={
+                  <>
+                    <Tag>{item.type}</Tag>
+                    {item.ip_address && <span>{item.ip_address}</span>}
+                  </>
+                }
+              />
+            </List.Item>
+          )}
         />
       </Drawer>
     </PageContainer>

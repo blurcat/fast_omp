@@ -2,7 +2,7 @@ import React from 'react';
 import { Layout, Typography, Card, Tag, Table, Divider, Space, Alert } from 'antd';
 import {
   DashboardOutlined, DesktopOutlined, AlertOutlined, ThunderboltOutlined,
-  DeploymentUnitOutlined, LockOutlined, SearchOutlined, SettingOutlined,
+  LockOutlined, SearchOutlined, SettingOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
 
@@ -31,7 +31,6 @@ const Docs: React.FC = () => {
     { key: 'assets', label: '🖥️ 资产管理', icon: <DesktopOutlined /> },
     { key: 'monitor', label: '🔔 监控告警', icon: <AlertOutlined /> },
     { key: 'jobs', label: '⚡ 作业平台', icon: <ThunderboltOutlined /> },
-    { key: 'changes', label: '🚀 变更管理', icon: <DeploymentUnitOutlined /> },
     { key: 'credentials', label: '🔐 凭证管理', icon: <LockOutlined /> },
     { key: 'inspections', label: '🔍 巡检管理', icon: <SearchOutlined /> },
     { key: 'settings', label: '⚙️ 系统管理', icon: <SettingOutlined /> },
@@ -115,9 +114,8 @@ const Docs: React.FC = () => {
                   { module: '资产管理', desc: '统一管理多云及本地资产，支持分组与权限控制', path: '/assets' },
                   { module: '监控告警', desc: '指标采集、告警规则、多渠道通知（钉钉/Webhook/邮件）', path: '/monitor' },
                   { module: '作业平台', desc: '批量 SSH 远程执行命令，支持模板复用与执行记录', path: '/jobs' },
-                  { module: '变更管理', desc: '变更工单申请、审批流程、操作记录追溯', path: '/changes' },
                   { module: '凭证管理', desc: '集中管理 SSH/Token/DB 凭证，加密存储', path: '/credentials' },
-                  { module: '巡检管理', desc: '定时或手动触发资产健康巡检，生成巡检报告', path: '/inspections' },
+                  { module: '巡检管理', desc: '选择资产与模板，通过 SSH 执行脚本，查看每台主机的执行结果', path: '/inspections' },
                   { module: '系统管理', desc: '用户、角色、菜单、权限及审计日志', path: '/settings' },
                 ]}
                 columns={[
@@ -146,11 +144,13 @@ const Docs: React.FC = () => {
                   pagination={false}
                   size="small"
                   dataSource={[
-                    { op: '新建资产', desc: '点击右上角「新建」按钮，填写名称、IP、类型、云厂商等信息' },
-                    { op: '搜索筛选', desc: '支持按名称、IP、类型、云厂商、状态、业务线、负责人多维度筛选' },
-                    { op: '编辑资产', desc: '点击操作列「编辑」，可修改资产所有信息包括所属分组' },
+                    { op: '新建资产', desc: '点击右上角「新建」按钮，填写名称、类型、云厂商、IP、状态等信息，可同时选择所属分组' },
+                    { op: '搜索筛选', desc: '支持按名称、IP、类型、云厂商/来源、状态、业务线、负责人、所属分组多维度筛选' },
+                    { op: '编辑资产', desc: '点击操作列「编辑」，可修改资产所有信息包括所属分组（多选）' },
                     { op: '查看详情', desc: '点击「详情」查看资产完整信息，包括创建时间、更新时间' },
                     { op: '删除资产', desc: '点击「删除」并在弹窗确认，操作不可逆' },
+                    { op: '批量删除', desc: '勾选多行后，点击工具栏「批量删除」按钮可一次删除多条资产' },
+                    { op: '分页', desc: '真实分页，支持每页 10/20/50/100 条，总数精确显示' },
                   ]}
                   columns={[
                     { title: '操作', dataIndex: 'op', width: 120, render: v => <Tag>{v}</Tag> },
@@ -159,17 +159,19 @@ const Docs: React.FC = () => {
                 />
               </Card>
               <Alert style={{ marginTop: 12 }} type="warning" showIcon
-                message="同一云厂商下 IP 地址不可重复；IP 地址为必填项。" />
+                message="同一云厂商下 IP 地址不可重复。状态枚举：运行中 / 已停止 / 维护中 / 未知。" />
             </SubSection>
 
             <SubSection id="assets-groups" title="资产分组">
-              <Paragraph>将资产按业务线、环境、团队等维度归组，方便批量权限管理。</Paragraph>
+              <Paragraph>将资产按业务线、环境、团队等维度归组，方便批量权限管理。列表页展示每个分组的资产数量。</Paragraph>
               <Card size="small">
                 <Paragraph>
                   <ul>
                     <li>创建分组后，在资产编辑页面的「所属分组」字段选择对应分组（支持多选）</li>
-                    <li>也可在「资产分组」页面直接将资产加入/移出分组</li>
+                    <li>在「资产分组」页面点击「资产成员」，可<Text strong>批量</Text>选择多个资产一次性加入分组</li>
+                    <li>成员列表中点击「移除」可将单个资产移出分组（不会删除资产本身）</li>
                     <li>分组权限在「系统管理 → 权限管理」中配置，支持按分组批量授权</li>
+                    <li>分组列表支持按名称搜索</li>
                   </ul>
                 </Paragraph>
               </Card>
@@ -299,48 +301,6 @@ POST /api/v1/monitor/metrics/batch/`}
             </SubSection>
           </Section>
 
-          {/* 变更管理 */}
-          <Section id="changes" title="🚀 变更管理">
-            <SubSection id="changes-flow" title="变更工单流程">
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                  {['草稿', '→', '待审批', '→', '已批准/已拒绝', '→', '执行中', '→', '已完成'].map((s, i) =>
-                    s === '→' ? <span key={i} style={{ color: '#8c8c8c' }}>→</span> :
-                      <Tag key={i} color={s === '已完成' ? 'green' : s === '已拒绝' ? 'red' : 'blue'}>{s}</Tag>
-                  )}
-                </div>
-                <Table
-                  pagination={false}
-                  size="small"
-                  dataSource={[
-                    { status: '草稿', op: '创建变更', who: '申请人', desc: '可编辑所有信息，点击「提交」进入审批' },
-                    { status: '待审批', op: '审批', who: '超级管理员', desc: '管理员点击「批准」或「拒绝」并填写意见' },
-                    { status: '已批准', op: '执行变更', who: '申请人', desc: '按变更方案执行操作' },
-                    { status: '已完成', op: '关闭', who: '申请人', desc: '变更执行完毕，更新状态为完成' },
-                  ]}
-                  columns={[
-                    { title: '状态', dataIndex: 'status', width: 90, render: v => <Tag>{v}</Tag> },
-                    { title: '操作', dataIndex: 'op', width: 100 },
-                    { title: '操作人', dataIndex: 'who', width: 110 },
-                    { title: '说明', dataIndex: 'desc' },
-                  ]}
-                />
-              </Card>
-            </SubSection>
-
-            <SubSection id="changes-create" title="创建变更">
-              <Card size="small">
-                <ul>
-                  <li><Text strong>变更类型：</Text>普通变更（常规）/ 紧急变更（紧急上线）/ 标准变更（低风险）</li>
-                  <li><Text strong>风险级别：</Text>低 / 中 / 高，影响审批优先级</li>
-                  <li><Text strong>变更方案：</Text>详细描述变更步骤</li>
-                  <li><Text strong>回滚方案：</Text>变更失败时的恢复步骤（必须填写）</li>
-                  <li><Text strong>计划时间：</Text>预计执行时间窗口</li>
-                </ul>
-              </Card>
-            </SubSection>
-          </Section>
-
           {/* 凭证管理 */}
           <Section id="credentials" title="🔐 凭证管理">
             <Paragraph>集中存储运维凭证，所有敏感数据加密保存，页面不显示明文。</Paragraph>
@@ -367,25 +327,49 @@ POST /api/v1/monitor/metrics/batch/`}
 
           {/* 巡检管理 */}
           <Section id="inspections" title="🔍 巡检管理">
-            <Paragraph>通过巡检模板定义检查项，手动或定时对资产执行健康检查并生成报告。</Paragraph>
+            <Alert type="info" showIcon style={{ marginBottom: 16 }}
+              message="巡检管理通过 SSH 在目标主机上执行脚本，需要资产绑定有效的 SSH 凭证。未绑定凭证的资产会在选择时给出警告。" />
 
             <SubSection id="inspections-template" title="巡检模板">
               <Card size="small">
+                <Paragraph>前往「巡检管理 → 巡检模板」标签页管理脚本模板：</Paragraph>
                 <ul>
-                  <li><Text strong>巡检脚本：</Text>执行在目标主机上的 Shell 命令，输出结果计入报告</li>
-                  <li><Text strong>Cron 表达式：</Text>定时巡检时间，如 <code>0 9 * * *</code> 表示每天 9:00（功能开发中）</li>
-                  <li><Text strong>巡检项目：</Text>结构化检查清单（JSON 格式），用于前端展示</li>
+                  <li><Text strong>模板名称：</Text>便于识别的名称，如「基础健康检查」</li>
+                  <li><Text strong>巡检脚本：</Text>在目标主机上执行的 Shell 脚本，stdout/stderr 均会记录到报告</li>
+                  <li><Text strong>快速选择：</Text>内置 5 个预设脚本按钮，点击即填入：基础健康检查、磁盘检查、内存检查、CPU 检查、网络检查</li>
                 </ul>
+                <Alert type="warning" showIcon style={{ marginTop: 8 }}
+                  message="脚本在远端主机以绑定凭证的用户身份运行，执行超时为 60 秒/台。" />
               </Card>
             </SubSection>
 
             <SubSection id="inspections-task" title="巡检任务">
               <Card size="small">
+                <Paragraph>前往「巡检管理 → 巡检任务」标签页：</Paragraph>
                 <ol>
                   <li>点击「新建任务」，填写任务名称</li>
-                  <li>在任务列表点击「执行」立即运行巡检</li>
-                  <li>执行完成后查看状态（完成/失败）及巡检报告详情</li>
+                  <li>选择要使用的<Text strong>巡检模板</Text>（决定执行哪个脚本）</li>
+                  <li>在「目标资产」多选框中选择需要巡检的主机（仅显示有 IP 的资产；未绑定凭证的资产以红色警告提示）</li>
+                  <li>点击「创建」保存任务</li>
                 </ol>
+              </Card>
+            </SubSection>
+
+            <SubSection id="inspections-execute" title="执行与查看结果">
+              <Card size="small">
+                <ol>
+                  <li>在任务列表点击「<Text strong>执行</Text>」立即运行巡检（按钮显示加载状态直至完成）</li>
+                  <li>执行完成后，状态列显示 <Tag color="green">已完成</Tag> 或 <Tag color="red">失败</Tag></li>
+                  <li>点击「<Text strong>查看结果</Text>」打开结果抽屉，展示：
+                    <ul>
+                      <li>概览：成功/总台数，如 <code>3/3 台成功</code></li>
+                      <li>每台主机折叠面板：主机名 + IP，<Tag color="green">成功</Tag> 或 <Tag color="red">失败</Tag></li>
+                      <li>展开后显示标准输出（绿色背景）和标准错误（红色背景）</li>
+                    </ul>
+                  </li>
+                </ol>
+                <Alert type="info" showIcon style={{ marginTop: 8 }}
+                  message="任一主机执行失败（SSH 连接失败、脚本退出码非 0）时，整体任务状态为「失败」。其他主机的结果仍会正常记录。" />
               </Card>
             </SubSection>
           </Section>
@@ -434,7 +418,7 @@ POST /api/v1/monitor/metrics/batch/`}
               <Card size="small">
                 <Paragraph>记录所有用户操作行为，包括：</Paragraph>
                 <Space wrap>
-                  {['登录/登录失败', '资产创建/编辑/删除', '分组成员变更', '权限授予/撤销', '变更工单操作'].map(a =>
+                  {['登录/登录失败', '资产创建/编辑/删除', '分组成员变更', '权限授予/撤销', '巡检任务执行'].map(a =>
                     <Tag key={a} icon={<CheckCircleOutlined />} color="green">{a}</Tag>
                   )}
                 </Space>

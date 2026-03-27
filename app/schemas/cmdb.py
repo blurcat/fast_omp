@@ -18,7 +18,8 @@ class ResourceGroupResponse(ResourceGroupBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    
+    resource_count: int = 0
+
     model_config = ConfigDict(from_attributes=True)
 
 # --- Resource Permission Schemas ---
@@ -53,6 +54,7 @@ class ResourceBase(BaseModel):
     owner: Optional[str] = None
     data: Dict[str, Any] = Field(default_factory=dict)
     tags: Dict[str, Any] = Field(default_factory=dict)
+    credential_id: Optional[int] = Field(None, description="关联凭证ID")
 
 class ResourceCreate(ResourceBase):
     """资源创建模型"""
@@ -87,5 +89,31 @@ class ResourceResponse(ResourceBase):
 
 class ResourceGroupDetailResponse(ResourceGroupResponse):
     resources: List[ResourceResponse] = []
-    
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PaginatedResourceResponse(BaseModel):
+    """分页资源列表响应"""
+    items: List[ResourceResponse]
+    total: int
+
+# --- Resource Type Schemas ---
+class ResourceTypeBase(BaseModel):
+    name: str = Field(..., description="类型显示名称，如「主机」")
+    value: str = Field(..., description="类型代码，如 host")
+    description: Optional[str] = None
+
+class ResourceTypeCreate(ResourceTypeBase):
+    pass
+
+class ResourceTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class ResourceTypeResponse(ResourceTypeBase):
+    id: int
+    is_builtin: bool
+    created_at: datetime
+    updated_at: datetime
+
     model_config = ConfigDict(from_attributes=True)

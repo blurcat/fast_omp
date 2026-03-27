@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -17,13 +17,24 @@ async def read_resource_groups(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    name: str = None,
     current_user = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    获取资源分组列表
+    获取资源分组列表，支持按名称搜索，每个分组附带资产数量
     """
-    result = await db.execute(select(ResourceGroup).offset(skip).limit(limit))
-    return result.scalars().all()
+    query = select(ResourceGroup).options(selectinload(ResourceGroup.resources))
+    if name:
+        query = query.where(ResourceGroup.name.ilike(f"%{name}%"))
+    result = await db.execute(query.offset(skip).limit(limit))
+    groups = result.scalars().all()
+    # Annotate resource_count from loaded relation to avoid extra queries
+    out = []
+    for g in groups:
+        d = ResourceGroupResponse.model_validate(g)
+        d.resource_count = len(g.resources)
+        out.append(d)
+    return out
 
 @router.post("/", response_model=ResourceGroupResponse)
 async def create_resource_group(
@@ -181,6 +192,51 @@ async def add_resource_to_group(
         ip_address=request.client.host if request.client else None
     )
     return group
+
+@router.post("/{group_id}/resources/batch")
+async def batch_add_resources_to_group(
+    *,
+    db: AsyncSession = Depends(get_db),
+    group_id: int,
+    resource_ids: List[int] = Body(..., embed=True),
+    current_user = Depends(deps.get_current_active_user),
+    request: Request,
+) -> Any:
+    """
+    批量添加资源到分组
+
+    请求体：`{ "resource_ids": [1, 2, 3] }`
+    """
+    g_res = await db.execute(select(ResourceGroup).options(selectinload(ResourceGroup.resources)).where(ResourceGroup.id == group_id))
+    group = g_res.scalars().first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    stmt = select(Resource).where(Resource.id.in_(resource_ids))
+    r_res = await db.execute(stmt)
+    resources = r_res.scalars().all()
+
+    added = 0
+    for resource in resources:
+        if resource not in group.resources:
+            group.resources.append(resource)
+            added += 1
+
+    if added:
+        await db.commit()
+
+    await create_audit_log(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="batch_add_members",
+        target_type="resource_group",
+        target_id=str(group_id),
+        details={"group_name": group.name, "resource_ids": resource_ids, "added": added},
+        ip_address=request.client.host if request.client else None
+    )
+    return {"message": f"成功添加 {added} 个资产", "added": added}
+
 
 @router.delete("/{group_id}/resources/{resource_id}", response_model=ResourceGroupResponse)
 async def remove_resource_from_group(

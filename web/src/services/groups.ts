@@ -33,6 +33,13 @@ export const addAssetToGroup = (groupId: number, resourceId: number) => {
   return request.post<any, AssetGroup>(`/asset-groups/${groupId}/resources/${resourceId}`);
 };
 
+export const batchAddAssetsToGroup = (groupId: number, resourceIds: number[]) => {
+  return request.post<any, { message: string; added: number }>(
+    `/asset-groups/${groupId}/resources/batch`,
+    { resource_ids: resourceIds }
+  );
+};
+
 export const removeAssetFromGroup = (groupId: number, resourceId: number) => {
   return request.delete<any, AssetGroup>(`/asset-groups/${groupId}/resources/${resourceId}`);
 };

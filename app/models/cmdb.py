@@ -86,7 +86,23 @@ class Resource(Base, TimestampMixin):
     data: Mapped[dict] = mapped_column(JSON, default={}, comment="资源详细规格数据(JSON)")
     tags: Mapped[dict] = mapped_column(JSON, default={}, comment="资源标签(JSON)")
 
+    # 关联凭证（用于 SSH/DB 登录测试和作业执行）
+    credential_id: Mapped[int] = mapped_column(ForeignKey("credentials.id"), nullable=True, comment="关联凭证ID")
+
     # Relationships
     groups: Mapped[list["ResourceGroup"]] = relationship(
         secondary=resource_groups_association, back_populates="resources"
     )
+
+class ResourceType(Base, TimestampMixin):
+    """
+    资源类型字典表
+    存储所有可用的资产类型，支持自定义扩展
+    """
+    __tablename__ = "cmdb_resource_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, comment="类型ID")
+    name: Mapped[str] = mapped_column(String(50), comment="类型显示名称，如「主机」")
+    value: Mapped[str] = mapped_column(String(50), unique=True, index=True, comment="类型代码，如 host，存储于资源的 type 字段")
+    description: Mapped[str] = mapped_column(String(200), nullable=True, comment="类型说明")
+    is_builtin: Mapped[bool] = mapped_column(default=False, comment="是否为内置类型")

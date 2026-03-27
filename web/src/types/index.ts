@@ -61,6 +61,7 @@ export interface Resource {
   data: Record<string, any>;
   tags: Record<string, any>;
   groups?: ResourceGroup[];
+  credential_id?: number | null;
   created_at: string;
   updated_at: string;
 }
